@@ -1,0 +1,219 @@
+/*
+ * Nerti Cookies — wygląd banera.
+ *
+ * Każda wartość jest zmienną --nc-* z wartością zapasową. Zmienne nadpisuje import
+ * z design-system.json (inc/class-tokeny.php); wartości zapasowe działają wtedy,
+ * gdy importu nie było — wtyczka ma być użyteczna także bez projektu.
+ *
+ * Świadomie NIE ma tu: cienia jako środka warstwowania bez tła, animacji dłuższej
+ * niż --nc-dur, ani żadnego przycisku z gradientem. Baner ma zniknąć z pola widzenia
+ * po decyzji, a nie konkurować z hero.
+ */
+
+.nc-baner {
+	position: fixed;
+	inset-inline: 0;
+	bottom: 0;
+	z-index: var(--nc-z, 400);
+	display: flex;
+	justify-content: center;
+	padding: var(--nc-gap, 1rem);
+	font-family: var(--nc-font, system-ui, sans-serif);
+	font-size: var(--nc-fs, 1rem);
+	line-height: var(--nc-lh, 1.6);
+	color: var(--nc-text, #16161f);
+	pointer-events: none;
+}
+
+/*
+ * Strona pod banerem zostaje w pełni używalna i przewijalna. To nie jest kwestia
+ * wygody: baner blokujący dostęp do treści do czasu podjęcia decyzji jest murem zgody,
+ * a mur zgody unieważnia zgodę, bo przestaje być dobrowolna.
+ */
+.nc-baner__panel {
+	pointer-events: auto;
+	width: min(46rem, 100%);
+	background: var(--nc-bg, #ffffff);
+	color: inherit;
+	border: 1px solid var(--nc-border, rgba(0, 0, 0, .12));
+	border-radius: var(--nc-radius-lg, 12px);
+	box-shadow: var(--nc-shadow, 0 8px 24px rgb(0 0 0 / .18));
+	padding: var(--nc-pad, 1.5rem);
+	max-height: 80vh;
+	overflow-y: auto;
+}
+
+.nc-baner__tytul {
+	font-family: var(--nc-font-head, inherit);
+	font-size: var(--nc-fs-head, 1.25rem);
+	margin: 0 0 .5em;
+}
+
+.nc-baner__tresc {
+	margin: 0 0 var(--nc-gap, 1rem);
+	max-width: 60ch;
+}
+
+.nc-baner__linki {
+	margin: 0 0 var(--nc-gap, 1rem);
+	font-size: var(--nc-fs-sm, .9375rem);
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--nc-gap, 1rem);
+}
+
+.nc-baner__linki a {
+	color: inherit;
+}
+
+.nc-baner__akcje {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--nc-gap, 1rem);
+	align-items: stretch;
+}
+
+/*
+ * .nc-btn--rowny: „Odrzucam wszystkie" i „Akceptuję wszystkie" mają IDENTYCZNE
+ * wymiary, tło, kontrast i wagę kroju. To jest wymóg, nie preferencja — przycisk
+ * odmowy udający link jest defektem prawnym i najczęstszym defektem na rynku.
+ * Zmiana którejkolwiek z tych wartości tylko dla jednego z nich psuje wtyczkę.
+ */
+.nc-btn {
+	font: inherit;
+	cursor: pointer;
+	min-height: 44px;
+	min-width: 44px;
+	padding: .625rem 1.25rem;
+	border-radius: var(--nc-radius, 8px);
+	border: 1px solid var(--nc-border, rgba(0, 0, 0, .2));
+	transition: filter var(--nc-dur, 200ms) var(--nc-ease, ease);
+}
+
+.nc-btn--rowny {
+	flex: 1 1 12rem;
+	background: var(--nc-primary, #16161f);
+	color: var(--nc-primary-ink, #ffffff);
+	border-color: transparent;
+	font-weight: 600;
+}
+
+.nc-btn--tekst {
+	flex: 0 1 auto;
+	background: transparent;
+	color: inherit;
+	text-decoration: underline;
+	text-underline-offset: .2em;
+}
+
+.nc-btn:hover {
+	filter: brightness(1.08);
+}
+
+.nc-btn:focus-visible,
+.nc-kategoria__pole:focus-visible,
+.nc-baner__linki a:focus-visible {
+	outline: 3px solid var(--nc-focus, #1f5fa8);
+	outline-offset: 2px;
+}
+
+.nc-baner__ustawienia {
+	margin-top: var(--nc-gap, 1rem);
+	padding-top: var(--nc-gap, 1rem);
+	border-top: 1px solid var(--nc-border, rgba(0, 0, 0, .12));
+}
+
+.nc-kategorie {
+	list-style: none;
+	margin: 0 0 var(--nc-gap, 1rem);
+	padding: 0;
+	display: grid;
+	gap: var(--nc-gap, 1rem);
+}
+
+.nc-kategoria__etykieta {
+	display: flex;
+	align-items: center;
+	gap: .625rem;
+	min-height: 44px;
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.nc-kategoria__pole {
+	width: 1.25rem;
+	height: 1.25rem;
+	accent-color: var(--nc-primary, #16161f);
+}
+
+.nc-kategoria__pole:disabled {
+	cursor: not-allowed;
+}
+
+.nc-kategoria__opis {
+	margin: .25rem 0 0 1.875rem;
+	font-size: var(--nc-fs-sm, .9375rem);
+	color: var(--nc-muted, #55555f);
+	max-width: 60ch;
+}
+
+/* Zastępnik osadzenia zewnętrznego (YouTube, mapa, odtwarzacz). */
+.nc-osadzenie {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: flex-start;
+	gap: var(--nc-gap, 1rem);
+	padding: var(--nc-pad, 1.5rem);
+	background: var(--nc-bg-2, rgba(0, 0, 0, .04));
+	border: 1px dashed var(--nc-border, rgba(0, 0, 0, .2));
+	border-radius: var(--nc-radius, 8px);
+	color: var(--nc-text, inherit);
+	font-family: var(--nc-font, system-ui, sans-serif);
+}
+
+.nc-osadzenie__opis {
+	margin: 0;
+	max-width: 55ch;
+	font-size: var(--nc-fs-sm, .9375rem);
+}
+
+/* Link wycofania zgody — wygląda jak link w stopce, nie jak przycisk. */
+.nc-wycofaj {
+	font: inherit;
+	background: none;
+	border: 0;
+	padding: .5rem 0;
+	min-height: 44px;
+	color: inherit;
+	text-decoration: underline;
+	text-underline-offset: .2em;
+	cursor: pointer;
+}
+
+.nc-wycofaj:focus-visible {
+	outline: 3px solid var(--nc-focus, #1f5fa8);
+	outline-offset: 2px;
+}
+
+@media (max-width: 30rem) {
+	.nc-baner {
+		padding: 0;
+	}
+
+	.nc-baner__panel {
+		border-radius: var(--nc-radius-lg, 12px) var(--nc-radius-lg, 12px) 0 0;
+		border-inline: 0;
+		border-bottom: 0;
+	}
+
+	.nc-btn--rowny {
+		flex: 1 1 100%;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.nc-btn {
+		transition: none;
+	}
+}
