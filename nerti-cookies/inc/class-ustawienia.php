@@ -298,13 +298,24 @@ class Nerti_Cookies_Ustawienia {
 		);
 	}
 
+	/**
+	 * Pozycja najwyższego poziomu, nie podstrona Ustawień.
+	 *
+	 * Powód: to jest ekran, na który klient wchodzi sam — zmienić tekst, sprawdzić
+	 * liczbę odmów, podnieść wersję polityki po zmianie treści. Schowany pod
+	 * `Ustawienia → Nerti Cookies` bywa nieznajdowany, bo w lewym pasku nie ma po nim
+	 * śladu, a `Ustawienia` to worek, do którego wtyczki wrzucają wszystko.
+	 * Slug zostaje ten sam (`nerti-cookies`), więc stare zakładki dalej działają.
+	 */
 	public static function menu() {
-		$strona = add_options_page(
+		$strona = add_menu_page(
 			'Nerti Cookies',
-			'Nerti Cookies',
+			'Ciasteczka',
 			'manage_options',
 			'nerti-cookies',
-			array( __CLASS__, 'ekran' )
+			array( __CLASS__, 'ekran' ),
+			'dashicons-privacy',
+			76 // Tuż nad Ustawieniami (80), pod Wtyczkami.
 		);
 		add_action( 'load-' . $strona, array( __CLASS__, 'zasoby_panelu' ) );
 	}
@@ -794,7 +805,7 @@ class Nerti_Cookies_Ustawienia {
 					'page'    => 'nerti-cookies',
 					'nc-info' => rawurlencode( $info ),
 				),
-				admin_url( 'options-general.php' )
+				admin_url( 'admin.php' )
 			)
 		);
 		exit;

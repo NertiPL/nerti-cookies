@@ -2,6 +2,12 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.2.1 — 2026-08-21
+
+### Naprawione
+
+- **Ekran wtyczki przeniesiony z `Ustawienia → Nerti Cookies` na własną pozycję w lewym pasku** („Ciasteczka", ikona kłódki, nad Ustawieniami). Był zarejestrowany przez `add_options_page()`, więc w lewym pasku nie zostawiał po sobie żadnego śladu — a `Ustawienia` to worek, do którego wtyczki wrzucają wszystko. To jest ekran, na który klient wchodzi sam: zmienić tekst, sprawdzić liczbę odmów, podnieść wersję polityki po zmianie treści. Slug (`nerti-cookies`) się nie zmienił, więc stare zakładki dalej działają; przekierowanie po zapisie idzie teraz na `admin.php`.
+
 ## 0.2.0 — 2026-08-21
 
 Wersja, od której wtyczkę można oddać klientowi: wygląd bierze się z projektu strony, klient sam zmienia teksty, a aktualizacje przychodzą same.
