@@ -1,0 +1,175 @@
+/*
+ * Nerti Cookies — ekran ustawień.
+ *
+ * Czysty CSS, zero frameworków, zero kroku budowania. Klasy WordPressa
+ * (.nav-tab, .form-table, .widefat, .button) robią większość roboty — tutaj
+ * jest tylko układ dwukolumnowy, zakładki i klatka podglądu.
+ *
+ * Arkusz banera (baner.css) jest wczytywany PRZED tym plikiem i tylko na tym
+ * jednym ekranie. To on maluje podgląd; poniżej cofamy mu wyłącznie te dwie
+ * rzeczy, które w panelu nie mają sensu: pozycjonowanie względem okna i to,
+ * że baner przykrywa całą stronę.
+ */
+
+.nc-panel__wersja {
+	font-size: 13px;
+	font-weight: 400;
+	color: #646970;
+	vertical-align: middle;
+}
+
+.nc-panel__zastrzezenie {
+	max-width: 70ch;
+}
+
+.nc-panel__lista {
+	list-style: disc;
+	margin-left: 1.5em;
+}
+
+/* Układ: treść plus podgląd przyklejony do góry. Poniżej 1200px jedna kolumna. */
+.nc-uklad {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 26rem;
+	gap: 24px;
+	align-items: start;
+	margin-top: 16px;
+}
+
+@media (max-width: 1200px) {
+	.nc-uklad {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+.nc-uklad__tresc {
+	min-width: 0;
+}
+
+.nc-uklad__podglad {
+	position: sticky;
+	top: 46px;
+}
+
+/* Zakładki: pokazujemy jedną sekcję, resztę chowamy. Bez zakładek (JS wyłączony)
+   widać wszystkie po kolei — ekran zostaje użyteczny, tylko dłuższy. */
+.nc-sekcja {
+	background: #fff;
+	border: 1px solid #c3c4c7;
+	padding: 4px 20px 20px;
+	margin: 0 0 20px;
+}
+
+.nc-taby {
+	display: none;
+}
+
+.nc-panel.nc-panel--taby .nc-taby {
+	display: block;
+}
+
+.nc-panel.nc-panel--taby .nc-sekcja {
+	display: none;
+	margin-top: -1px;
+}
+
+.nc-panel.nc-panel--taby .nc-sekcja.nc-sekcja--aktywna {
+	display: block;
+}
+
+.nc-zapis {
+	margin: 0 0 20px;
+}
+
+/* Kolejność źródeł wyglądu — aktywne wyróżnione, nie tylko opisane. */
+.nc-zrodla {
+	max-width: 70ch;
+	margin-left: 1.4em;
+}
+
+.nc-zrodla li {
+	margin-bottom: .5em;
+	padding-left: .4em;
+}
+
+.nc-zrodla__aktywne {
+	border-left: 4px solid #2271b1;
+	margin-left: -1em;
+	padding-left: 1.4em;
+	background: #f0f6fc;
+}
+
+.nc-urzadzenia {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+	gap: 16px;
+}
+
+.nc-urzadzenie,
+.nc-kat {
+	border: 1px solid #dcdcde;
+	padding: 4px 16px 12px;
+	background: #fbfbfc;
+}
+
+.nc-urzadzenie legend,
+.nc-kat legend {
+	font-weight: 600;
+	padding: 0 6px;
+}
+
+.nc-znacznik {
+	font-weight: 400;
+	font-size: 12px;
+	background: #dcdcde;
+	border-radius: 3px;
+	padding: 1px 6px;
+}
+
+.nc-tabela {
+	max-width: 52rem;
+	margin-bottom: 1em;
+}
+
+/* ---------- Podgląd ---------- */
+
+.nc-podglad__pasek {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 6px;
+}
+
+.nc-podglad__przelacznik .is-active {
+	background: #2271b1;
+	border-color: #2271b1;
+	color: #fff;
+}
+
+/*
+ * Klatka podglądu. Baner zostaje sobą — te same klasy, te same zmienne --nc-*,
+ * ten sam render() co na froncie. Zmieniamy mu tylko ramę odniesienia:
+ * position: absolute zamiast fixed, żeby --nc-align i --nc-just układały panel
+ * wewnątrz klatki, a nie wewnątrz okna przeglądarki. Gdyby podgląd miał własne
+ * reguły wyglądu, przestałby być podglądem.
+ */
+.nc-podglad {
+	position: relative;
+	overflow: hidden;
+	height: 26rem;
+	margin: 0 auto;
+	border: 1px solid #c3c4c7;
+	border-radius: 4px;
+	background: #f6f7f7 repeating-linear-gradient(45deg, transparent 0 10px, rgba(0, 0, 0, .02) 10px 20px);
+	transition: width .2s ease;
+}
+
+.nc-podglad .nc-baner {
+	position: absolute;
+	z-index: 1;
+}
+
+.nc-podglad .nc-baner__panel {
+	max-height: 24rem;
+}

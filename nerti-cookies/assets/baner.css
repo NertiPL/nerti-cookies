@@ -10,13 +10,21 @@
  * po decyzji, a nie konkurować z hero.
  */
 
+/*
+ * Kontener zajmuje cały ekran i NIE łapie kliknięć (pointer-events: none), więc
+ * o miejscu panelu decydują wyłącznie --nc-align i --nc-just. Pięć pozycji —
+ * dół, góra, środek, lewy i prawy dolny róg — kosztuje przez to dwie zmienne
+ * zamiast pięciu zestawów reguł. Obie ustawia PHP osobno dla telefonu i dla
+ * desktopu (Nerti_Cookies_Tokeny::css_wygladu) w dwóch blokach @media wokół
+ * jedynego breakpointu banera: 48rem.
+ */
 .nc-baner {
 	position: fixed;
-	inset-inline: 0;
-	bottom: 0;
+	inset: 0;
 	z-index: var(--nc-z, 400);
 	display: flex;
-	justify-content: center;
+	align-items: var(--nc-align, flex-end);
+	justify-content: var(--nc-just, center);
 	padding: var(--nc-gap, 1rem);
 	font-family: var(--nc-font, system-ui, sans-serif);
 	font-size: var(--nc-fs, 1rem);
@@ -32,7 +40,7 @@
  */
 .nc-baner__panel {
 	pointer-events: auto;
-	width: min(46rem, 100%);
+	width: min(var(--nc-szer, 46rem), 100%);
 	background: var(--nc-bg, #ffffff);
 	color: inherit;
 	border: 1px solid var(--nc-border, rgba(0, 0, 0, .12));
@@ -196,17 +204,17 @@
 	outline-offset: 2px;
 }
 
-@media (max-width: 30rem) {
-	.nc-baner {
-		padding: 0;
-	}
-
-	.nc-baner__panel {
-		border-radius: var(--nc-radius-lg, 12px) var(--nc-radius-lg, 12px) 0 0;
-		border-inline: 0;
-		border-bottom: 0;
-	}
-
+/*
+ * Jedyny breakpoint banera: 48rem. Ta sama liczba stoi w
+ * Nerti_Cookies_Tokeny::BREAKPOINT — zmiana tylko tutaj rozjedzie układ ze
+ * zmiennymi, które PHP wypuszcza wokół tego samego progu.
+ *
+ * Poniżej progu przyciski idą jeden pod drugim. Nie ma tu już przyklejania
+ * panelu do krawędzi ekranu: było zapisane na sztywno jako „zaokrąglony u góry,
+ * bez dolnej krawędzi", czyli poprawne wyłącznie dla pozycji „na dole" —
+ * a pozycję wybiera teraz klient, osobno dla telefonu.
+ */
+@media (max-width: 47.9375rem) {
 	.nc-btn--rowny {
 		flex: 1 1 100%;
 	}

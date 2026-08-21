@@ -36,12 +36,38 @@ class Nerti_Cookies_Ustawienia {
 			'wersja_polityki'  => '1.0',
 			'wersja_banera'    => NERTI_COOKIES_WERSJA,
 			'waznosc_dni'      => 182,
-			'pozycja'          => 'dol',
 			'consent_mode'     => true,
 			'bufor_wyjscia'    => true,
 			'link_polityka'    => '',
 			'link_cookies'     => '',
 			'administrator'    => '',
+
+			/*
+			 * Wygląd ustawiany osobno dla telefonu i dla desktopu.
+			 *
+			 * Jeden breakpoint, 48rem (768px przy domyślnym kroku przeglądarki), ten sam
+			 * w ustawieniach i w `assets/baner.css`. Wybrany nie z listy popularnych
+			 * breakpointów, tylko z jedynego progu, który dla TEGO elementu coś zmienia:
+			 * poniżej 48rem panel o szerokości 30rem zajmuje cały ekran i dwa przyciski
+			 * przestają się mieścić obok siebie. Drugi breakpoint dokładałby ustawienie,
+			 * którego klient nie umiałby rozstrzygnąć.
+			 *
+			 * `tekst` => 'auto' znaczy „nie nadpisuj" — wtedy działa rozmiar z importu
+			 * tokenów. Trzy nazwane rozmiary zamiast pola z jednostkami, bo klient, który
+			 * wpisze tam `20` bez `px`, dostanie baner bez stylu i nie będzie wiedział czemu.
+			 */
+			'wyglad'           => array(
+				'desktop' => array(
+					'pozycja'   => 'dol',
+					'szerokosc' => 46,
+					'tekst'     => 'auto',
+				),
+				'mobile'  => array(
+					'pozycja'   => 'dol',
+					'szerokosc' => 30,
+					'tekst'     => 'auto',
+				),
+			),
 
 			'kategorie'        => array(
 				'niezbedne'   => array(
@@ -162,9 +188,40 @@ class Nerti_Cookies_Ustawienia {
 		$biezace = get_option( self::OPCJA, array() );
 		$biezace = is_array( $biezace ) ? $biezace : array();
 		$scalone = array_replace_recursive( $biezace, $nowe );
+		$scalone = self::pilnuj_odmowy( $scalone );
 		update_option( self::OPCJA, $scalone, false );
 		self::$bufor = null;
 		return self::pobierz();
+	}
+
+	/**
+	 * Bramka Q-COOKIE: przycisk odmowy zostaje na pierwszym ekranie i wygląda tak samo
+	 * jak przycisk zgody.
+	 *
+	 * Klasa `nc-btn--rowny` i miejsce w znaczniku są w `class-baner.php` na sztywno —
+	 * nie da się ich wyklikać. Wyklikać da się jedno: wyczyścić tekst. Pusty przycisk
+	 * jest przyciskiem niewidocznym, czyli odmową schowaną — dokładnie tym defektem,
+	 * którego reszta wtyczki pilnuje. Dlatego pusty tekst wraca do domyślnego, a nie
+	 * zostaje pusty.
+	 *
+	 * Stoi w `zapisz()`, a nie w obsłudze formularza, bo ustawienia zmienia też MCP
+	 * (`nerti-cookies/zapisz-ustawienia`) i REST. Bramka w jednym z tych trzech miejsc
+	 * jest bramką, którą omija się przez dwa pozostałe.
+	 *
+	 * @param array $u Ustawienia po scaleniu.
+	 * @return array
+	 */
+	private static function pilnuj_odmowy( array $u ) {
+		$domyslne = self::domyslne();
+
+		// Bez tekstu nie ma przycisku; te trzy muszą istnieć, żeby pierwszy ekran był
+		// kompletny — odmowa, zgoda i wejście w wybór szczegółowy.
+		foreach ( array( 'odrzuc', 'akceptuj', 'ustawienia' ) as $klucz ) {
+			if ( ! isset( $u['teksty'][ $klucz ] ) || '' === trim( (string) $u['teksty'][ $klucz ] ) ) {
+				$u['teksty'][ $klucz ] = $domyslne['teksty'][ $klucz ];
+			}
+		}
+		return $u;
 	}
 
 	public static function zasiej_domyslne() {
@@ -230,13 +287,77 @@ class Nerti_Cookies_Ustawienia {
 
 	/* ---------- Panel administracyjny ---------- */
 
+	/** Zakładki ekranu, w kolejności wyświetlania. */
+	public static function zakladki() {
+		return array(
+			'stan'      => 'Stan',
+			'wyglad'    => 'Wygląd',
+			'teksty'    => 'Teksty',
+			'kategorie' => 'Kategorie i skrypty',
+			'rejestr'   => 'Rejestr zgód',
+		);
+	}
+
 	public static function menu() {
-		add_options_page(
+		$strona = add_options_page(
 			'Nerti Cookies',
 			'Nerti Cookies',
 			'manage_options',
 			'nerti-cookies',
 			array( __CLASS__, 'ekran' )
+		);
+		add_action( 'load-' . $strona, array( __CLASS__, 'zasoby_panelu' ) );
+	}
+
+	/**
+	 * Zasoby panelu wchodzą TYLKO na własnym ekranie — arkusz banera ma reguły na
+	 * `.nc-btn` i `position: fixed`, więc wpuszczony na cały panel WordPressa
+	 * pomalowałby cudze ekrany.
+	 */
+	public static function zasoby_panelu() {
+		add_action(
+			'admin_enqueue_scripts',
+			static function () {
+				wp_enqueue_style( 'nerti-cookies', NERTI_COOKIES_URL . 'assets/baner.css', array(), NERTI_COOKIES_WERSJA );
+				wp_enqueue_style( 'nerti-cookies-panel', NERTI_COOKIES_URL . 'assets/panel.css', array( 'nerti-cookies' ), NERTI_COOKIES_WERSJA );
+
+				$zmienne = Nerti_Cookies_Baner::css_zmiennych();
+				if ( '' !== $zmienne ) {
+					wp_add_inline_style( 'nerti-cookies-panel', $zmienne );
+				}
+
+				wp_enqueue_script( 'nerti-cookies-panel', NERTI_COOKIES_URL . 'assets/panel.js', array(), NERTI_COOKIES_WERSJA, true );
+				wp_localize_script(
+					'nerti-cookies-panel',
+					'ncPanel',
+					array(
+						'pozycje'  => Nerti_Cookies_Tokeny::pozycje(),
+						'rozmiary' => Nerti_Cookies_Tokeny::rozmiary(),
+					)
+				);
+			}
+		);
+	}
+
+	/**
+	 * Opis każdego pola tekstowego: gdzie ten tekst się pokazuje. Bez tego klient
+	 * zgaduje, co edytuje, i sprawdza to publikując zmianę na żywej stronie.
+	 *
+	 * @return array
+	 */
+	public static function opisy_tekstow() {
+		return array(
+			'tytul'         => array( 'Nagłówek banera', 'Pierwsza linia banera, dużym krojem.', false ),
+			'tresc'         => array( 'Treść banera', 'Akapit pod nagłówkiem. Jedno-dwa zdania — dłuższego nikt nie przeczyta przed kliknięciem.', true ),
+			'odrzuc'        => array( 'Przycisk odmowy', 'Pierwszy przycisk na pierwszym ekranie. Musi zostać — pusty wraca do domyślnego.', false ),
+			'akceptuj'      => array( 'Przycisk zgody', 'Drugi przycisk na pierwszym ekranie, tej samej wielkości co odmowa.', false ),
+			'ustawienia'    => array( 'Wejście w wybór szczegółowy', 'Trzeci element pierwszego ekranu — rozwija listę kategorii.', false ),
+			'zapisz'        => array( 'Zapis wyboru szczegółowego', 'Przycisk pod listą kategorii, widoczny po rozwinięciu.', false ),
+			'polityka'      => array( 'Podpis linku do polityki prywatności', 'Widoczny w banerze tylko wtedy, gdy adres polityki jest uzupełniony w zakładce Stan.', false ),
+			'cookies'       => array( 'Podpis linku do polityki cookies', 'Jak wyżej — pokazuje się tylko przy uzupełnionym adresie.', false ),
+			'wycofaj'       => array( 'Link wycofania zgody', 'Tekst przycisku ze skrótu [nerti_cookies_ustawienia], zwykle w stopce.', false ),
+			'osadzenie'     => array( 'Zastępnik zablokowanego materiału', 'Pokazuje się w miejscu filmu z YouTube albo mapy, dopóki nie ma zgody marketingowej.', true ),
+			'osadzenie_btn' => array( 'Przycisk pod zastępnikiem', 'Klikniecie odblokowuje ten jeden materiał.', false ),
 		);
 	}
 
@@ -244,70 +365,344 @@ class Nerti_Cookies_Ustawienia {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		$u     = self::pobierz();
-		$zgody = Nerti_Cookies_Rejestr::statystyki();
+		$u      = self::pobierz();
+		$zgody  = Nerti_Cookies_Rejestr::statystyki();
+		$zrodlo = Nerti_Cookies_Tokeny::zrodlo();
+		$oxy    = null !== Nerti_Cookies_Tokeny::ustawienia_oxygena();
+		$akcja  = esc_url( admin_url( 'admin-post.php' ) );
 		?>
-		<div class="wrap">
-			<h1>Nerti Cookies</h1>
-			<p><strong>To nie jest narzędzie do orzekania o zgodności z prawem.</strong>
-			Wtyczka blokuje skrypty przed zgodą i zapisuje decyzje. Treść polityki
-			zatwierdza właściciel strony albo jego prawnik.</p>
+		<div class="wrap nc-panel">
+			<h1>Nerti Cookies <span class="nc-panel__wersja"><?php echo esc_html( NERTI_COOKIES_WERSJA ); ?></span></h1>
 
+			<p class="nc-panel__zastrzezenie">
+				<strong>To nie jest narzędzie do orzekania o zgodności z prawem.</strong>
+				Wtyczka blokuje skrypty przed zgodą i zapisuje decyzje. Treść polityki
+				zatwierdza właściciel strony albo jego prawnik.
+			</p>
+
+			<?php if ( ! empty( $zrodlo['ostrzezenia'] ) ) : ?>
+				<div class="notice notice-warning">
+					<p><strong>Import wyglądu zgłosił problem z czytelnością:</strong></p>
+					<ul class="nc-panel__lista">
+						<?php foreach ( $zrodlo['ostrzezenia'] as $o ) : ?>
+							<li><?php echo esc_html( $o ); ?></li>
+						<?php endforeach; ?>
+					</ul>
+				</div>
+			<?php endif; ?>
+
+			<?php if ( isset( $_GET['nc-info'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
+				<div class="notice notice-success is-dismissible">
+					<p><?php echo esc_html( sanitize_text_field( wp_unslash( $_GET['nc-info'] ) ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?></p>
+				</div>
+			<?php endif; ?>
+
+			<h2 class="nav-tab-wrapper nc-taby">
+				<?php foreach ( self::zakladki() as $id => $etykieta ) : ?>
+					<a href="#nc-<?php echo esc_attr( $id ); ?>" class="nav-tab" data-nc-tab="<?php echo esc_attr( $id ); ?>"><?php echo esc_html( $etykieta ); ?></a>
+				<?php endforeach; ?>
+			</h2>
+
+			<div class="nc-uklad">
+				<div class="nc-uklad__tresc">
+
+					<form method="post" action="<?php echo $akcja; ?>">
+						<input type="hidden" name="action" value="nerti_cookies_zapisz">
+						<?php wp_nonce_field( 'nerti_cookies_zapisz' ); ?>
+
+						<?php self::sekcja_stan( $u, $zgody, $zrodlo ); ?>
+						<?php self::sekcja_wyglad( $u, $zrodlo, $oxy ); ?>
+						<?php self::sekcja_teksty( $u ); ?>
+						<?php self::sekcja_kategorie( $u ); ?>
+
+						<p class="nc-zapis"><?php submit_button( 'Zapisz zmiany', 'primary', 'submit', false ); ?></p>
+					</form>
+
+					<?php self::sekcja_rejestr( $zgody, $akcja ); ?>
+				</div>
+
+				<?php self::podglad(); ?>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Podgląd banera na żywo. Rysuje go tym samym `render()`, którego używa front,
+	 * i tymi samymi zmiennymi — inaczej podgląd zacząłby żyć własnym życiem i
+	 * pokazywałby baner, którego na stronie nie ma.
+	 */
+	private static function podglad() {
+		?>
+		<aside class="nc-uklad__podglad">
+			<div class="nc-podglad__pasek">
+				<strong>Podgląd</strong>
+				<span class="nc-podglad__przelacznik">
+					<button type="button" class="button button-small is-active" data-nc-urzadzenie="desktop">Desktop</button>
+					<button type="button" class="button button-small" data-nc-urzadzenie="mobile">Telefon</button>
+				</span>
+			</div>
+			<div class="nc-podglad" data-nc-podglad>
+				<?php Nerti_Cookies_Baner::render( true ); ?>
+			</div>
+			<p class="description">Podgląd pokazuje pierwszy ekran banera. Zmiany widać od razu; na stronie pojawiają się po zapisaniu.</p>
+		</aside>
+		<?php
+	}
+
+	private static function sekcja_stan( array $u, array $zgody, array $zrodlo ) {
+		?>
+		<section id="nc-stan" class="nc-sekcja" data-nc-panel="stan">
 			<h2>Stan</h2>
-			<table class="widefat striped" style="max-width:52rem">
+			<table class="widefat striped nc-tabela">
 				<tbody>
 				<tr><td>Wersja polityki</td><td><code><?php echo esc_html( $u['wersja_polityki'] ); ?></code></td></tr>
 				<tr><td>Zapisanych decyzji</td><td><?php echo esc_html( (string) $zgody['razem'] ); ?></td></tr>
 				<tr><td>w tym odmów</td><td><?php echo esc_html( (string) $zgody['odmowy'] ); ?></td></tr>
 				<tr><td>Blokada przez bufor wyjścia</td><td><?php echo $u['bufor_wyjscia'] ? 'włączona' : '<strong>wyłączona</strong>'; ?></td></tr>
 				<tr><td>Consent Mode v2</td><td><?php echo $u['consent_mode'] ? 'włączony' : 'wyłączony'; ?></td></tr>
-				<tr><td>Tokeny wyglądu</td><td><?php echo Nerti_Cookies_Tokeny::czy_zaimportowane() ? 'z design-system.json' : 'domyślne wtyczki'; ?></td></tr>
+				<tr>
+					<td>Wygląd banera</td>
+					<td><strong><?php echo esc_html( Nerti_Cookies_Tokeny::opis_zrodla() ); ?></strong>
+					<?php if ( '' !== $zrodlo['kiedy'] ) : ?>
+						<span class="description">(import: <?php echo esc_html( $zrodlo['kiedy'] ); ?>)</span>
+					<?php endif; ?>
+					</td>
+				</tr>
 				</tbody>
 			</table>
 
-			<h2>Zmiana</h2>
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
-				<input type="hidden" name="action" value="nerti_cookies_zapisz">
-				<?php wp_nonce_field( 'nerti_cookies_zapisz' ); ?>
-				<table class="form-table">
-					<tr>
-						<th><label for="nc-polityka">Adres polityki prywatności</label></th>
-						<td><input id="nc-polityka" class="regular-text" type="url" name="link_polityka" value="<?php echo esc_attr( $u['link_polityka'] ); ?>"></td>
-					</tr>
-					<tr>
-						<th><label for="nc-cookies">Adres polityki cookies</label></th>
-						<td><input id="nc-cookies" class="regular-text" type="url" name="link_cookies" value="<?php echo esc_attr( $u['link_cookies'] ); ?>"></td>
-					</tr>
-					<tr>
-						<th><label for="nc-waznosc">Ważność decyzji (dni)</label></th>
-						<td><input id="nc-waznosc" type="number" min="1" max="365" name="waznosc_dni" value="<?php echo esc_attr( (string) $u['waznosc_dni'] ); ?>">
-						<p class="description">Po tym czasie pytamy ponownie. Powyżej roku zgoda przestaje być odświeżana i to jest problem, nie oszczędność.</p></td>
-					</tr>
-					<tr>
-						<th>Blokada przez bufor wyjścia</th>
-						<td><label><input type="checkbox" name="bufor_wyjscia" value="1" <?php checked( (bool) $u['bufor_wyjscia'] ); ?>> łap też skrypty wklejone na sztywno w motyw</label></td>
-					</tr>
-				</table>
-				<?php submit_button( 'Zapisz' ); ?>
-			</form>
+			<table class="form-table">
+				<tr>
+					<th><label for="nc-polityka">Adres polityki prywatności</label></th>
+					<td><input id="nc-polityka" class="regular-text" type="url" name="link_polityka" value="<?php echo esc_attr( $u['link_polityka'] ); ?>">
+					<p class="description">Póki jest pusty, baner nie pokazuje linku do polityki.</p></td>
+				</tr>
+				<tr>
+					<th><label for="nc-cookies">Adres polityki cookies</label></th>
+					<td><input id="nc-cookies" class="regular-text" type="url" name="link_cookies" value="<?php echo esc_attr( $u['link_cookies'] ); ?>"></td>
+				</tr>
+				<tr>
+					<th><label for="nc-waznosc">Ważność decyzji (dni)</label></th>
+					<td><input id="nc-waznosc" type="number" min="1" max="365" name="waznosc_dni" value="<?php echo esc_attr( (string) $u['waznosc_dni'] ); ?>">
+					<p class="description">Po tym czasie pytamy ponownie. Powyżej roku zgoda przestaje być odświeżana i to jest problem, nie oszczędność.</p></td>
+				</tr>
+				<tr>
+					<th>Blokada przez bufor wyjścia</th>
+					<td><label><input type="checkbox" name="bufor_wyjscia" value="1" <?php checked( (bool) $u['bufor_wyjscia'] ); ?>> łap też skrypty wklejone na sztywno w motyw</label></td>
+				</tr>
+			</table>
+		</section>
+		<?php
+	}
 
+	private static function sekcja_wyglad( array $u, array $zrodlo, $oxy ) {
+		$pozycje  = Nerti_Cookies_Tokeny::pozycje();
+		$rozmiary = Nerti_Cookies_Tokeny::rozmiary();
+		$urzadzenia = array( 'desktop' => 'Desktop (szerokość od 48rem)', 'mobile' => 'Telefon (szerokość poniżej 48rem)' );
+		?>
+		<section id="nc-wyglad" class="nc-sekcja" data-nc-panel="wyglad">
+			<h2>Wygląd</h2>
+
+			<h3>Skąd baner bierze kolory i kroje</h3>
+			<p>Wtyczka sprawdza źródła w tej kolejności i bierze pierwsze, które jest dostępne:</p>
+			<ol class="nc-zrodla">
+				<li class="<?php echo 'design-system' === $zrodlo['zrodlo'] ? 'nc-zrodla__aktywne' : ''; ?>">
+					<strong>design-system.json projektu</strong> — pełny zestaw tokenów, wczytywany przez MCP
+					(<code>nerti-cookies/importuj-tokeny</code>). Najdokładniejszy, bo pochodzi z projektu strony.
+				</li>
+				<li class="<?php echo 'oxygen' === $zrodlo['zrodlo'] ? 'nc-zrodla__aktywne' : ''; ?>">
+					<strong>Ustawienia globalne Oxygena</strong> — kolory, kroje, rozmiar bazowy, promień i cień
+					przycisku. <?php echo $oxy ? 'Na tej instalacji są ustawione.' : '<em>Na tej instalacji są puste.</em>'; ?>
+				</li>
+				<li class="<?php echo 'domyslne' === $zrodlo['zrodlo'] ? 'nc-zrodla__aktywne' : ''; ?>">
+					<strong>Domyślne wtyczki</strong> — neutralna czerń na bieli. Zawsze czytelne, nigdy nie pasuje.
+				</li>
+			</ol>
+			<p>Teraz obowiązuje: <strong><?php echo esc_html( Nerti_Cookies_Tokeny::opis_zrodla() ); ?></strong>.</p>
+
+			<?php if ( ! empty( $zrodlo['pomiary'] ) ) : ?>
+				<p class="description">Zmierzony kontrast:
+				<?php
+				$czesci = array();
+				foreach ( $zrodlo['pomiary'] as $opis => $r ) {
+					$czesci[] = esc_html( $opis . ' — ' . number_format_i18n( $r, 2 ) . ':1' );
+				}
+				echo wp_kses_post( implode( ', ', $czesci ) );
+				?>
+				. Próg to 4,5:1.</p>
+			<?php endif; ?>
+
+			<p>
+				<button type="submit" class="button" name="importuj_oxygen" value="1" <?php disabled( ! $oxy ); ?>>
+					Wczytaj wygląd z Oxygena
+				</button>
+				<button type="submit" class="button" name="wyczysc_tokeny" value="1" <?php disabled( 'domyslne' === $zrodlo['zrodlo'] ); ?>>
+					Wróć do domyślnych
+				</button>
+			</p>
+
+			<h3>Ustawienie osobno dla telefonu i dla desktopu</h3>
+			<p class="description">Granica między nimi to 48rem (przy domyślnych ustawieniach przeglądarki 768&nbsp;px) — jedyny próg, na którym dwa przyciski przestają się mieścić obok siebie.</p>
+
+			<div class="nc-urzadzenia">
+				<?php foreach ( $urzadzenia as $klucz => $etykieta ) : ?>
+					<?php $w = isset( $u['wyglad'][ $klucz ] ) ? $u['wyglad'][ $klucz ] : array(); ?>
+					<fieldset class="nc-urzadzenie">
+						<legend><?php echo esc_html( $etykieta ); ?></legend>
+
+						<p>
+							<label for="nc-poz-<?php echo esc_attr( $klucz ); ?>">Pozycja na ekranie</label><br>
+							<select id="nc-poz-<?php echo esc_attr( $klucz ); ?>" name="wyglad[<?php echo esc_attr( $klucz ); ?>][pozycja]" data-nc-wyglad="pozycja" data-nc-dla="<?php echo esc_attr( $klucz ); ?>">
+								<?php foreach ( $pozycje as $id => $p ) : ?>
+									<option value="<?php echo esc_attr( $id ); ?>" <?php selected( isset( $w['pozycja'] ) ? $w['pozycja'] : 'dol', $id ); ?>><?php echo esc_html( $p['nazwa'] ); ?></option>
+								<?php endforeach; ?>
+							</select>
+						</p>
+
+						<p>
+							<label for="nc-szer-<?php echo esc_attr( $klucz ); ?>">Szerokość panelu (rem)</label><br>
+							<input id="nc-szer-<?php echo esc_attr( $klucz ); ?>" type="number" min="16" max="100" step="1"
+								name="wyglad[<?php echo esc_attr( $klucz ); ?>][szerokosc]"
+								value="<?php echo esc_attr( (string) ( isset( $w['szerokosc'] ) ? $w['szerokosc'] : 46 ) ); ?>"
+								data-nc-wyglad="szerokosc" data-nc-dla="<?php echo esc_attr( $klucz ); ?>">
+							<span class="description">Baner nigdy nie przekroczy szerokości ekranu, więc na telefonie duża liczba znaczy „na całą szerokość".</span>
+						</p>
+
+						<p>
+							<label for="nc-tekst-<?php echo esc_attr( $klucz ); ?>">Wielkość tekstu</label><br>
+							<select id="nc-tekst-<?php echo esc_attr( $klucz ); ?>" name="wyglad[<?php echo esc_attr( $klucz ); ?>][tekst]" data-nc-wyglad="tekst" data-nc-dla="<?php echo esc_attr( $klucz ); ?>">
+								<?php foreach ( $rozmiary as $id => $r ) : ?>
+									<option value="<?php echo esc_attr( $id ); ?>" <?php selected( isset( $w['tekst'] ) ? $w['tekst'] : 'auto', $id ); ?>><?php echo esc_html( $r['nazwa'] ); ?></option>
+								<?php endforeach; ?>
+							</select>
+						</p>
+					</fieldset>
+				<?php endforeach; ?>
+			</div>
+		</section>
+		<?php
+	}
+
+	private static function sekcja_teksty( array $u ) {
+		?>
+		<section id="nc-teksty" class="nc-sekcja" data-nc-panel="teksty">
+			<h2>Teksty</h2>
+			<p>Wszystko, co odwiedzający przeczyta. Zmiany widać od razu w podglądzie obok.</p>
+
+			<div class="notice notice-info inline">
+				<p><strong>Przycisku odmowy nie da się ukryć.</strong> Stoi na pierwszym ekranie, ma tę samą
+				wielkość i wagę co przycisk zgody, i wymaga jednego kliknięcia — tak samo jak zgoda.
+				Wyczyszczenie jego tekstu przywraca tekst domyślny, a nie zostawia pustego przycisku.</p>
+			</div>
+
+			<table class="form-table">
+				<?php foreach ( self::opisy_tekstow() as $klucz => $meta ) : ?>
+					<?php list( $etykieta, $gdzie, $dlugie ) = $meta; ?>
+					<tr>
+						<th><label for="nc-t-<?php echo esc_attr( $klucz ); ?>"><?php echo esc_html( $etykieta ); ?></label></th>
+						<td>
+							<?php if ( $dlugie ) : ?>
+								<textarea id="nc-t-<?php echo esc_attr( $klucz ); ?>" class="large-text" rows="3"
+									name="teksty[<?php echo esc_attr( $klucz ); ?>]"
+									data-nc-pole="<?php echo esc_attr( $klucz ); ?>"><?php echo esc_textarea( $u['teksty'][ $klucz ] ); ?></textarea>
+							<?php else : ?>
+								<input id="nc-t-<?php echo esc_attr( $klucz ); ?>" class="regular-text" type="text"
+									name="teksty[<?php echo esc_attr( $klucz ); ?>]"
+									value="<?php echo esc_attr( $u['teksty'][ $klucz ] ); ?>"
+									data-nc-pole="<?php echo esc_attr( $klucz ); ?>">
+							<?php endif; ?>
+							<p class="description"><?php echo esc_html( $gdzie ); ?></p>
+						</td>
+					</tr>
+				<?php endforeach; ?>
+			</table>
+		</section>
+		<?php
+	}
+
+	private static function sekcja_kategorie( array $u ) {
+		?>
+		<section id="nc-kategorie" class="nc-sekcja" data-nc-panel="kategorie">
+			<h2>Kategorie i skrypty</h2>
+			<p>Nazwa i opis każdej kategorii pokazują się na drugim ekranie banera, po kliknięciu
+			„<?php echo esc_html( $u['teksty']['ustawienia'] ); ?>". Opis ma mówić, co ta kategoria robi
+			odwiedzającemu, a nie jak nazywa się narzędzie.</p>
+
+			<?php foreach ( $u['kategorie'] as $id => $kat ) : ?>
+				<fieldset class="nc-kat">
+					<legend>
+						<?php echo esc_html( $kat['nazwa'] ); ?>
+						<?php if ( ! empty( $kat['wymagana'] ) ) : ?>
+							<span class="nc-znacznik">zawsze włączona</span>
+						<?php endif; ?>
+					</legend>
+					<p>
+						<label for="nc-kn-<?php echo esc_attr( $id ); ?>">Nazwa</label><br>
+						<input id="nc-kn-<?php echo esc_attr( $id ); ?>" class="regular-text" type="text"
+							name="kategorie[<?php echo esc_attr( $id ); ?>][nazwa]" value="<?php echo esc_attr( $kat['nazwa'] ); ?>">
+					</p>
+					<p>
+						<label for="nc-ko-<?php echo esc_attr( $id ); ?>">Opis</label><br>
+						<textarea id="nc-ko-<?php echo esc_attr( $id ); ?>" class="large-text" rows="3"
+							name="kategorie[<?php echo esc_attr( $id ); ?>][opis]"><?php echo esc_textarea( $kat['opis'] ); ?></textarea>
+					</p>
+					<p class="description">Blokowane ciasteczka: <code><?php echo esc_html( implode( ', ', (array) $kat['ciasteczka'] ) ); ?></code></p>
+				</fieldset>
+			<?php endforeach; ?>
+
+			<h3>Co jest blokowane przed zgodą</h3>
+			<p class="description">Tę listę zmienia się przez MCP (<code>nerti-cookies/zapisz-ustawienia</code>)
+			albo przez inwentarz skryptów (<code>nerti-cookies/inwentarz-skryptow</code>). Nie ma jej tutaj do
+			wyklikania, bo pomyłka w jednym wzorcu odblokowuje skrypt przed zgodą i nikt tego nie zauważy.</p>
+
+			<table class="widefat striped nc-tabela">
+				<thead><tr><th>Wzorzec</th><th>Kategoria</th></tr></thead>
+				<tbody>
+				<?php foreach ( array( 'uchwyty' => 'uchwyt WordPressa', 'wzorce' => 'adres lub treść skryptu', 'osadzenia' => 'osadzenie' ) as $grupa => $co ) : ?>
+					<?php foreach ( (array) $u[ $grupa ] as $wzorzec => $kategoria ) : ?>
+						<tr>
+							<td><code><?php echo esc_html( $wzorzec ); ?></code> <span class="description">(<?php echo esc_html( $co ); ?>)</span></td>
+							<td><?php echo esc_html( $kategoria ); ?></td>
+						</tr>
+					<?php endforeach; ?>
+				<?php endforeach; ?>
+				</tbody>
+			</table>
+		</section>
+		<?php
+	}
+
+	private static function sekcja_rejestr( array $zgody, $akcja ) {
+		?>
+		<section id="nc-rejestr" class="nc-sekcja" data-nc-panel="rejestr">
 			<h2>Rejestr zgód</h2>
+			<table class="widefat striped nc-tabela">
+				<tbody>
+				<tr><td>Zapisanych decyzji</td><td><?php echo esc_html( (string) $zgody['razem'] ); ?></td></tr>
+				<tr><td>w tym odmów</td><td><?php echo esc_html( (string) $zgody['odmowy'] ); ?></td></tr>
+				</tbody>
+			</table>
+			<p class="description">Rejestr z zerem odmów przy setkach zgód jest sygnałem defektu, nie sukcesu —
+			znaczy zwykle, że przycisk odmowy jest niewidoczny albo nie zapisuje.</p>
+
 			<p>Eksport całego rejestru do pliku CSV. Potrzebny wtedy, gdy ktoś kwestionuje zgodę — a wtedy nikt nie ma czasu na zapytanie SQL.</p>
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<form method="post" action="<?php echo $akcja; ?>">
 				<input type="hidden" name="action" value="nerti_cookies_eksport">
 				<?php wp_nonce_field( 'nerti_cookies_eksport' ); ?>
 				<?php submit_button( 'Pobierz CSV', 'secondary', 'submit', false ); ?>
 			</form>
 
-			<h2>Nowa wersja polityki</h2>
-			<p>Podniesienie wersji <strong>unieważnia wszystkie dotychczasowe zgody</strong> i pokazuje baner od nowa. Robisz to, gdy zmieniła się treść polityki albo lista narzędzi na stronie.</p>
-			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+			<h3>Nowa wersja polityki</h3>
+			<p>Podniesienie wersji <strong>unieważnia wszystkie dotychczasowe zgody</strong> i pokazuje baner od nowa.
+			Robisz to, gdy zmieniła się treść polityki albo lista narzędzi na stronie.</p>
+			<form method="post" action="<?php echo $akcja; ?>">
 				<input type="hidden" name="action" value="nerti_cookies_zapisz">
 				<input type="hidden" name="podnies_wersje" value="1">
 				<?php wp_nonce_field( 'nerti_cookies_zapisz' ); ?>
-				<?php submit_button( 'Podnieś wersję polityki', 'secondary' ); ?>
+				<?php submit_button( 'Podnieś wersję polityki', 'secondary', 'submit', false ); ?>
 			</form>
-		</div>
+		</section>
 		<?php
 	}
 
@@ -317,8 +712,19 @@ class Nerti_Cookies_Ustawienia {
 		}
 		check_admin_referer( 'nerti_cookies_zapisz' );
 
+		$info = 'Zapisano.';
+
 		if ( isset( $_POST['podnies_wersje'] ) ) {
-			self::podnies_wersje_polityki();
+			$info = 'Wersja polityki podniesiona do ' . self::podnies_wersje_polityki() . '. Wszystkie dotychczasowe zgody zostały unieważnione.';
+		} elseif ( isset( $_POST['importuj_oxygen'] ) ) {
+			$w    = Nerti_Cookies_Tokeny::importuj_z_oxygena();
+			$info = ! empty( $w['ok'] )
+				? sprintf( 'Wygląd wczytany z Oxygena: %d zmiennych.', (int) $w['ile'] ) . ( empty( $w['ostrzezenia'] ) ? '' : ' Zgłoszono problem z kontrastem — patrz komunikat wyżej.' )
+				: 'Nie udało się wczytać z Oxygena: ' . $w['blad'];
+		} elseif ( isset( $_POST['wyczysc_tokeny'] ) ) {
+			delete_option( Nerti_Cookies_Tokeny::OPCJA );
+			delete_option( Nerti_Cookies_Tokeny::OPCJA_ZRODLO );
+			$info = 'Baner wrócił do wyglądu domyślnego.';
 		} else {
 			$nowe = array(
 				'link_polityka' => isset( $_POST['link_polityka'] ) ? esc_url_raw( wp_unslash( $_POST['link_polityka'] ) ) : '',
@@ -326,10 +732,71 @@ class Nerti_Cookies_Ustawienia {
 				'waznosc_dni'   => isset( $_POST['waznosc_dni'] ) ? max( 1, min( 365, (int) $_POST['waznosc_dni'] ) ) : 182,
 				'bufor_wyjscia' => isset( $_POST['bufor_wyjscia'] ),
 			);
+
+			// Teksty: przez sanitize_text_field, bo trafiają do znacznika banera.
+			// Pusty tekst odmowy naprawia `zapisz()`, nie to miejsce — patrz pilnuj_odmowy().
+			if ( isset( $_POST['teksty'] ) && is_array( $_POST['teksty'] ) ) {
+				$dozwolone = array_keys( self::opisy_tekstow() );
+				$teksty    = array();
+				foreach ( wp_unslash( $_POST['teksty'] ) as $klucz => $wartosc ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+					if ( in_array( $klucz, $dozwolone, true ) ) {
+						$teksty[ $klucz ] = sanitize_text_field( (string) $wartosc );
+					}
+				}
+				$nowe['teksty'] = $teksty;
+			}
+
+			// Kategorie: tylko nazwa i opis. Reszta — `wymagana`, `ciasteczka` — nie jest
+			// w formularzu i nie może dać się podstawić przez dopisanie pola do POST-a.
+			if ( isset( $_POST['kategorie'] ) && is_array( $_POST['kategorie'] ) ) {
+				$biezace = self::pobierz();
+				$kat     = array();
+				foreach ( wp_unslash( $_POST['kategorie'] ) as $id => $pola ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+					if ( ! isset( $biezace['kategorie'][ $id ] ) || ! is_array( $pola ) ) {
+						continue;
+					}
+					$kat[ $id ] = array(
+						'nazwa' => sanitize_text_field( (string) ( $pola['nazwa'] ?? '' ) ),
+						'opis'  => sanitize_text_field( (string) ( $pola['opis'] ?? '' ) ),
+					);
+					if ( '' === $kat[ $id ]['nazwa'] ) {
+						$kat[ $id ]['nazwa'] = $biezace['kategorie'][ $id ]['nazwa'];
+					}
+				}
+				$nowe['kategorie'] = $kat;
+			}
+
+			if ( isset( $_POST['wyglad'] ) && is_array( $_POST['wyglad'] ) ) {
+				$pozycje  = Nerti_Cookies_Tokeny::pozycje();
+				$rozmiary = Nerti_Cookies_Tokeny::rozmiary();
+				$wyglad   = array();
+				foreach ( array( 'desktop', 'mobile' ) as $urzadzenie ) {
+					$w = isset( $_POST['wyglad'][ $urzadzenie ] ) && is_array( $_POST['wyglad'][ $urzadzenie ] )
+						? wp_unslash( $_POST['wyglad'][ $urzadzenie ] ) // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+						: array();
+					$pozycja = isset( $w['pozycja'] ) ? (string) $w['pozycja'] : 'dol';
+					$tekst   = isset( $w['tekst'] ) ? (string) $w['tekst'] : 'auto';
+					$wyglad[ $urzadzenie ] = array(
+						'pozycja'   => isset( $pozycje[ $pozycja ] ) ? $pozycja : 'dol',
+						'szerokosc' => max( 16, min( 100, isset( $w['szerokosc'] ) ? (int) $w['szerokosc'] : 46 ) ),
+						'tekst'     => isset( $rozmiary[ $tekst ] ) ? $tekst : 'auto',
+					);
+				}
+				$nowe['wyglad'] = $wyglad;
+			}
+
 			self::zapisz( $nowe );
 		}
 
-		wp_safe_redirect( admin_url( 'options-general.php?page=nerti-cookies' ) );
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'    => 'nerti-cookies',
+					'nc-info' => rawurlencode( $info ),
+				),
+				admin_url( 'options-general.php' )
+			)
+		);
 		exit;
 	}
 }

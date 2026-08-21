@@ -27,7 +27,7 @@ class Nerti_Cookies_Baner {
 			NERTI_COOKIES_WERSJA
 		);
 
-		$tokeny = Nerti_Cookies_Tokeny::css();
+		$tokeny = self::css_zmiennych();
 		if ( '' !== $tokeny ) {
 			wp_add_inline_style( 'nerti-cookies', $tokeny );
 		}
@@ -44,6 +44,20 @@ class Nerti_Cookies_Baner {
 	}
 
 	/**
+	 * Wszystkie zmienne `--nc-*`: zaimportowane tokeny plus układ dla telefonu i desktopu.
+	 *
+	 * Jedna metoda, bo podgląd w panelu musi dostać DOKŁADNIE ten sam zestaw co front.
+	 * Gdyby panel składał go sobie sam, podgląd potrafiłby pokazywać baner, którego
+	 * na stronie nie ma — a wtedy jest gorszy niż brak podglądu.
+	 *
+	 * @return string
+	 */
+	public static function css_zmiennych() {
+		return Nerti_Cookies_Tokeny::css()
+			. Nerti_Cookies_Tokeny::css_wygladu( Nerti_Cookies_Ustawienia::pole( 'wyglad', array() ) );
+	}
+
+	/**
 	 * Znacznik jest drukowany ZAWSZE, także komuś, kto już podjął decyzję, i chowany
 	 * przez CSS na podstawie atrybutu `data-nc` ustawionego w `<head>`.
 	 *
@@ -52,21 +66,21 @@ class Nerti_Cookies_Baner {
 	 * o tym, czy kolejni w ogóle zobaczą baner. To jest błąd, który ujawnia się dopiero
 	 * na produkcji z włączonym cache'em, czyli po odbiorze.
 	 */
-	public static function render() {
-		if ( ! Nerti_Cookies_Blokada::czy_dziala() ) {
+	public static function render( $podglad = false ) {
+		if ( ! $podglad && ! Nerti_Cookies_Blokada::czy_dziala() ) {
 			return;
 		}
 		$u  = Nerti_Cookies_Ustawienia::pobierz();
 		$t  = $u['teksty'];
-		$id = 'nc-baner';
+		$id = $podglad ? 'nc-podglad-baner' : 'nc-baner';
 		?>
 		<div id="<?php echo esc_attr( $id ); ?>" class="nc-baner" role="dialog" aria-modal="false"
-			aria-labelledby="nc-tytul" aria-describedby="nc-tresc" hidden>
+			aria-labelledby="nc-tytul" aria-describedby="nc-tresc" <?php echo $podglad ? '' : 'hidden'; ?>>
 			<div class="nc-baner__panel">
 
 				<div class="nc-baner__glowny">
-					<h2 id="nc-tytul" class="nc-baner__tytul"><?php echo esc_html( $t['tytul'] ); ?></h2>
-					<p id="nc-tresc" class="nc-baner__tresc"><?php echo esc_html( $t['tresc'] ); ?></p>
+					<h2 id="nc-tytul" class="nc-baner__tytul" data-nc-tekst="tytul"><?php echo esc_html( $t['tytul'] ); ?></h2>
+					<p id="nc-tresc" class="nc-baner__tresc" data-nc-tekst="tresc"><?php echo esc_html( $t['tresc'] ); ?></p>
 
 					<?php if ( ! empty( $u['link_polityka'] ) || ! empty( $u['link_cookies'] ) ) : ?>
 						<p class="nc-baner__linki">
@@ -89,13 +103,13 @@ class Nerti_Cookies_Baner {
 					 */
 					?>
 					<div class="nc-baner__akcje">
-						<button type="button" class="nc-btn nc-btn--rowny" data-nc-akcja="odrzuc">
+						<button type="button" class="nc-btn nc-btn--rowny" data-nc-akcja="odrzuc" data-nc-tekst="odrzuc">
 							<?php echo esc_html( $t['odrzuc'] ); ?>
 						</button>
-						<button type="button" class="nc-btn nc-btn--rowny" data-nc-akcja="akceptuj">
+						<button type="button" class="nc-btn nc-btn--rowny" data-nc-akcja="akceptuj" data-nc-tekst="akceptuj">
 							<?php echo esc_html( $t['akceptuj'] ); ?>
 						</button>
-						<button type="button" class="nc-btn nc-btn--tekst" data-nc-akcja="pokaz-ustawienia"
+						<button type="button" class="nc-btn nc-btn--tekst" data-nc-akcja="pokaz-ustawienia" data-nc-tekst="ustawienia"
 							aria-expanded="false" aria-controls="nc-ustawienia">
 							<?php echo esc_html( $t['ustawienia'] ); ?>
 						</button>
@@ -118,7 +132,7 @@ class Nerti_Cookies_Baner {
 						<?php endforeach; ?>
 					</ul>
 					<div class="nc-baner__akcje">
-						<button type="button" class="nc-btn nc-btn--rowny" data-nc-akcja="zapisz">
+						<button type="button" class="nc-btn nc-btn--rowny" data-nc-akcja="zapisz" data-nc-tekst="zapisz">
 							<?php echo esc_html( $t['zapisz'] ); ?>
 						</button>
 					</div>

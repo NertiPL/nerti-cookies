@@ -1,6 +1,6 @@
 <?php
 /**
- * Sterowanie wtyczką z zewnątrz — przez WordPress Abilities API (jeśli jest) i przez REST.
+ * Sterowanie wtyczką z zewnątrz — przez Agent Connector for WP (MCP) i przez REST.
  *
  * PO CO TO ISTNIEJE
  * Zmiana tekstu w banerze, podniesienie wersji polityki albo import tokenów wyglądu wymaga
@@ -8,22 +8,27 @@
  * to jest dziesięć logowań, żeby zmienić jedno zdanie. Ten plik wystawia te operacje jako
  * wywołania, które agent może wykonać przez MCP.
  *
- * CZEGO NIE WIEM, A CO TRZEBA SPRAWDZIĆ PRZED WDROŻENIEM
- * Sygnatura poniżej (`wp_register_ability`, hook `abilities_api_init`, klucze `label`,
- * `description`, `input_schema`, `output_schema`, `execute_callback`, `permission_callback`)
- * odpowiada temu, co pamiętam z Abilities API. **Nie została zweryfikowana wobec wersji
- * zainstalowanej na maszynie klienta.** Zanim uznasz tę ścieżkę za działającą, sprawdź trzy
- * rzeczy i zapisz wynik — lista jest w ../abilities.md §3:
- *   1. czy funkcja rejestrująca nazywa się `wp_register_ability` i czy hook to
- *      `abilities_api_init`;
- *   2. jakie dokładnie klucze przyjmuje tablica argumentów i które są wymagane;
- *   3. jak agent connector odnajduje zarejestrowane abilities i czym się uwierzytelnia.
+ * SYGNATURA ZWERYFIKOWANA NA ŻYWEJ INSTALACJI — 2026-08-21, laboria (Local by Flywheel),
+ * Agent Connector for WP. Poprzednia wersja tego pliku była napisana z pamięci i nie
+ * rejestrowała niczego. Zmierzone różnice:
  *
- * Dlatego rejestracja jest opakowana w `function_exists()`, a **cała funkcjonalność jest
- * dostępna także przez zwykły REST** (trasy niżej). Ścieżka REST działa na czystym
- * WordPressie z hasłem aplikacji i nie zależy od żadnego założenia o Abilities API.
- * Wtyczka, która działa tylko przez interfejs, którego nie sprawdziłem, jest wtyczką,
- * która nie działa.
+ *   funkcja  wp_register_ability()          -> agent_connector_for_wp_register_ability()
+ *   hook     abilities_api_init             -> wp_abilities_api_init
+ *   kategorie brak                          -> wp_abilities_api_categories_init
+ *   auth     permission_callback po naszej  -> BRAK. Agent Connector wstrzykuje bramkę
+ *            stronie                           admin/super-admin, blokadę domeny i audyt
+ *                                              dla każdego ability zarejestrowanego jego API
+ *
+ * Wzorzec: `agent-connector-for-wp/examples/acfw-ability-pack-hello/`. Wtyczka deklaruje się
+ * jako paczka nagłówkiem `Agent Connector: Ability Pack` w `nerti-cookies.php`.
+ *
+ * DWIE WARSTWY, JEDNA DEFINICJA
+ * `katalog()` jest jedynym miejscem, gdzie operacja jest zdefiniowana. Warstwa abilities
+ * i warstwa REST to dwa adaptery po kilkanaście linii nad tym samym katalogiem — nie dwie
+ * implementacje, więc nie mają jak się rozjechać. REST zostaje, bo działa na czystym
+ * WordPressie bez Agent Connectora, i to jest jedyna droga sterowania banerem na stronie
+ * klienta, który nie ma tej wtyczki. Uwierzytelnienie REST: hasło aplikacji + `manage_options`
+ * po naszej stronie, bo tam nikt niczego za nas nie wstrzykuje.
  *
  * @package NertiCookies
  */
@@ -32,8 +37,12 @@ defined( 'ABSPATH' ) || exit;
 
 class Nerti_Cookies_Abilities {
 
+	/** Slug kategorii w katalogu abilities. */
+	const KATEGORIA = 'nerti-cookies';
+
 	public static function hooks() {
-		add_action( 'abilities_api_init', array( __CLASS__, 'rejestruj_abilities' ) );
+		add_action( 'wp_abilities_api_categories_init', array( __CLASS__, 'rejestruj_kategorie' ) );
+		add_action( 'wp_abilities_api_init', array( __CLASS__, 'rejestruj_abilities' ) );
 		add_action( 'rest_api_init', array( __CLASS__, 'trasy_rest' ) );
 	}
 
@@ -44,23 +53,47 @@ class Nerti_Cookies_Abilities {
 		return current_user_can( 'manage_options' );
 	}
 
-	/* ---------- Warstwa 1: Abilities API (warunkowa) ---------- */
+	/* ---------- Warstwa 1: Agent Connector for WP (Abilities API) ---------- */
 
-	public static function rejestruj_abilities() {
-		if ( ! function_exists( 'wp_register_ability' ) ) {
+	/**
+	 * Kategoria musi powstać przed abilities, które się na nią powołują — stąd osobny hook.
+	 */
+	public static function rejestruj_kategorie() {
+		if ( ! function_exists( 'wp_register_ability_category' ) ) {
 			return;
+		}
+		wp_register_ability_category(
+			self::KATEGORIA,
+			array(
+				'label'       => 'Nerti Cookies',
+				'description' => 'Baner zgód, rejestr zgód, inwentarz skryptów i dobór dokumentów prawnych strony.',
+			)
+		);
+	}
+
+	/**
+	 * Bez `permission_callback` — Agent Connector wstrzykuje uwierzytelnienie i audyt sam.
+	 * Dopisanie własnego callbacku tutaj nie dokłada bezpieczeństwa, tylko drugą bramkę,
+	 * która potrafi się rozjechać z pierwszą.
+	 */
+	public static function rejestruj_abilities() {
+		if ( ! function_exists( 'agent_connector_for_wp_register_ability' ) ) {
+			return; // Agent Connector nieaktywny — nie rejestrujemy nic. REST niżej działa dalej.
 		}
 
 		foreach ( self::katalog() as $nazwa => $def ) {
-			wp_register_ability(
+			agent_connector_for_wp_register_ability(
 				'nerti-cookies/' . $nazwa,
 				array(
-					'label'               => $def['etykieta'],
-					'description'         => $def['opis'],
-					'input_schema'        => $def['wejscie'],
-					'output_schema'       => $def['wyjscie'],
-					'execute_callback'    => $def['wykonaj'],
-					'permission_callback' => array( __CLASS__, 'moze' ),
+					'label'            => $def['etykieta'],
+					'description'      => $def['opis'],
+					'category'         => self::KATEGORIA,
+					'input_schema'     => $def['wejscie'],
+					'output_schema'    => $def['wyjscie'],
+					'annotations'      => $def['adnotacje'],
+					'execute_callback' => static function ( array $input ) use ( $def ) {
+						return call_user_func( $def['wykonaj'], $input );
+					},
 				)
 			);
 		}
@@ -99,6 +132,7 @@ class Nerti_Cookies_Abilities {
 				'opis'     => 'Zwraca pełną konfigurację banera zgód: kategorie, teksty, wersję polityki, listę blokowanych wzorców i stan importu tokenów wyglądu.',
 				'wejscie'  => array( 'type' => 'object', 'properties' => new stdClass() ),
 				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => true, 'idempotent' => true, 'destructive' => false ),
 				'wykonaj'  => array( __CLASS__, 'op_pobierz' ),
 			),
 
@@ -118,9 +152,14 @@ class Nerti_Cookies_Abilities {
 						'uchwyty'       => array( 'type' => 'object' ),
 						'bufor_wyjscia' => array( 'type' => 'boolean' ),
 						'consent_mode'  => array( 'type' => 'boolean' ),
+						'wyglad'        => array(
+							'type'        => 'object',
+							'description' => 'Układ banera, osobno dla telefonu i desktopu: {"desktop":{"pozycja":"dol|gora|srodek|lewy-dol|prawy-dol","szerokosc":46,"tekst":"auto|mniejszy|normalny|wiekszy"},"mobile":{...}}. Szerokość w rem, 16-100. Granica między urządzeniami to 48rem.',
+						),
 					),
 				),
 				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => false, 'idempotent' => true, 'destructive' => false ),
 				'wykonaj'  => array( __CLASS__, 'op_zapisz' ),
 			),
 
@@ -135,7 +174,17 @@ class Nerti_Cookies_Abilities {
 					'required'   => array( 'zrodlo' ),
 				),
 				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => false, 'idempotent' => true, 'destructive' => false ),
 				'wykonaj'  => array( __CLASS__, 'op_tokeny' ),
+			),
+
+			'importuj-z-oxygena' => array(
+				'etykieta' => 'Wczytaj wygląd z ustawień globalnych Oxygena',
+				'opis'     => 'Drugie źródło wyglądu, na wypadek gdy projekt nie ma pliku design-system.json. Czyta ustawienia globalne Oxygena — kolory, kroje, rozmiar bazowy, promień i cień przycisku, czas przejścia — i przepisuje je na te same zmienne banera. Kolejność pierwszeństwa: design-system.json, potem Oxygen, potem wartości domyślne wtyczki. Po imporcie mierzy kontrast tekstu na tle panelu i napisu przycisku na przycisku; para poniżej 4,5:1 NIE zostaje zaimportowana i wraca w polu „ostrzezenia", bo baner, którego nie da się przeczytać, jest gorszy niż baner niepasujący do strony.',
+				'wejscie'  => array( 'type' => 'object', 'properties' => new stdClass() ),
+				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => false, 'idempotent' => true, 'destructive' => false ),
+				'wykonaj'  => array( __CLASS__, 'op_oxygen' ),
 			),
 
 			'podnies-wersje-polityki' => array(
@@ -146,6 +195,7 @@ class Nerti_Cookies_Abilities {
 					'properties' => array( 'wersja' => array( 'type' => 'string' ) ),
 				),
 				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => false, 'idempotent' => false, 'destructive' => true ),
 				'wykonaj'  => array( __CLASS__, 'op_wersja' ),
 			),
 
@@ -154,7 +204,59 @@ class Nerti_Cookies_Abilities {
 				'opis'     => 'Liczba zapisanych decyzji, liczba odmów i data ostatniej. Służy do sprawdzenia, czy baner w ogóle zapisuje odmowy — rejestr z zerem odmów przy tysiącu zgód jest sygnałem defektu, nie sukcesu.',
 				'wejscie'  => array( 'type' => 'object', 'properties' => new stdClass() ),
 				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => true, 'idempotent' => true, 'destructive' => false ),
 				'wykonaj'  => array( __CLASS__, 'op_statystyki' ),
+			),
+
+			'zaproponuj-dokumenty' => array(
+				'etykieta' => 'Zaproponuj komplet dokumentów prawnych',
+				'opis'     => 'Dobiera komplet dokumentów prawnych do typu strony i sprawdza, których brakuje. Strona wizytówkowa albo ofertowa bez sklepu dostaje JEDEN dokument — politykę prywatności z informacją o ciasteczkach w środku. Sklep dostaje osobne: prywatność, cookies, regulamin, zwroty i odstąpienie, dane firmowe. Każda pozycja wraca z uzasadnieniem i ze statusem: czy taka podstrona jest już opublikowana. Nie generuje treści — treść powstaje z faktycznego inwentarza skryptów, nie z szablonu.',
+				'wejscie'  => array(
+					'type'       => 'object',
+					'properties' => array(
+						'typ'      => array(
+							'type'        => 'string',
+							'enum'        => array( 'wizytowka', 'ofertowa', 'sklep' ),
+							'description' => 'Typ strony. wizytowka i ofertowa oznaczają brak sprzedaży online.',
+						),
+						'funkcje'  => array(
+							'type'        => 'array',
+							'items'       => array(
+								'type' => 'string',
+								'enum' => array( 'formularz', 'newsletter', 'rezerwacje', 'konta', 'platnosci', 'czat', 'komentarze' ),
+							),
+							'description' => 'Co strona faktycznie robi. Każda pozycja może dolożyć dokument.',
+						),
+						'kategorie' => array(
+							'type'        => 'array',
+							'items'       => array( 'type' => 'string', 'enum' => array( 'analityczne', 'marketingowe' ) ),
+							'description' => 'Kategorie skryptów nieniezbędnych z inwentarza. Puste — wywołanie odczyta je z rejestru WordPressa i powie o tym w polu dodatkowo.',
+						),
+						'pracownikow' => array(
+							'type'        => 'integer',
+							'description' => 'Liczba pracowników. Rozstrzyga zwolnienie mikroprzedsiębiorcy z wymogów dostępności (próg: mniej niż 10). Brak tego pola i pola obrot_mln_eur zwraca pytanie do klienta, nie domysł.',
+						),
+						'obrot_mln_eur' => array(
+							'type'        => 'number',
+							'description' => 'Roczny obrót albo suma bilansowa w mln EUR. Drugi warunek zwolnienia mikroprzedsiębiorcy (próg: do 2).',
+						),
+					),
+					'required'   => array( 'typ' ),
+				),
+				'wyjscie'  => array(
+					'type'       => 'object',
+					'properties' => array(
+						'wariant'      => array( 'type' => 'string' ),
+						'dokumenty'    => array( 'type' => 'array' ),
+						'brakujace'    => array( 'type' => 'array' ),
+						'dodatkowo'    => array( 'type' => 'array' ),
+						'dostepnosc'   => array( 'type' => 'object' ),
+						'zastrzezenie' => array( 'type' => 'string' ),
+						'nota'         => array( 'type' => 'string' ),
+					),
+				),
+				'adnotacje' => array( 'readonly' => true, 'idempotent' => true, 'destructive' => false ),
+				'wykonaj'  => array( __CLASS__, 'op_dokumenty' ),
 			),
 
 			'inwentarz-skryptow' => array(
@@ -162,6 +264,7 @@ class Nerti_Cookies_Abilities {
 				'opis'     => 'Zwraca listę uchwytów skryptów zarejestrowanych w WordPressie wraz z ich adresami i przypisaną kategorią. To jest wejście do polityki cookies generowanej z faktycznego stanu strony, nie z szablonu.',
 				'wejscie'  => array( 'type' => 'object', 'properties' => new stdClass() ),
 				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => true, 'idempotent' => true, 'destructive' => false ),
 				'wykonaj'  => array( __CLASS__, 'op_inwentarz' ),
 			),
 		);
@@ -176,11 +279,16 @@ class Nerti_Cookies_Abilities {
 			'ustawienia'       => $u,
 			'tokeny'           => Nerti_Cookies_Tokeny::pobierz(),
 			'tokeny_z_systemu' => Nerti_Cookies_Tokeny::czy_zaimportowane(),
+			// Skąd pochodzi wygląd i co import zgłosił — bez tego agent po drugiej
+			// stronie widzi kolory, ale nie wie, czy to projekt, Oxygen, czy nic.
+			'wyglad_zrodlo'    => Nerti_Cookies_Tokeny::zrodlo(),
+			'wyglad_opis'      => Nerti_Cookies_Tokeny::opis_zrodla(),
+			'oxygen_dostepny'  => null !== Nerti_Cookies_Tokeny::ustawienia_oxygena(),
 		);
 	}
 
 	public static function op_zapisz( $args = array() ) {
-		$dozwolone = array( 'teksty', 'link_polityka', 'link_cookies', 'waznosc_dni', 'kategorie', 'wzorce', 'osadzenia', 'uchwyty', 'bufor_wyjscia', 'consent_mode', 'pozycja', 'administrator' );
+		$dozwolone = array( 'teksty', 'link_polityka', 'link_cookies', 'waznosc_dni', 'kategorie', 'wzorce', 'osadzenia', 'uchwyty', 'bufor_wyjscia', 'consent_mode', 'wyglad', 'administrator' );
 		$nowe      = array();
 		foreach ( $dozwolone as $klucz ) {
 			if ( array_key_exists( $klucz, (array) $args ) ) {
@@ -202,6 +310,18 @@ class Nerti_Cookies_Abilities {
 		 * wygląda gorzej niż baner całkiem obcy, bo wygląda na pomyłkę.
 		 */
 		return $wynik;
+	}
+
+	/**
+	 * Wynik niesie `zrodlo`, `pomiary` i `ostrzezenia`. Agent po drugiej stronie ma
+	 * zobaczyć, że kontrast został sprawdzony i ile wyszło — „ok: true" bez liczby
+	 * nie różni się niczym od importu, który nic nie sprawdził.
+	 *
+	 * @param array $args Bez parametrów.
+	 * @return array
+	 */
+	public static function op_oxygen( $args = array() ) {
+		return Nerti_Cookies_Tokeny::importuj_z_oxygena();
 	}
 
 	public static function op_wersja( $args = array() ) {
@@ -249,6 +369,289 @@ class Nerti_Cookies_Abilities {
 			'wtyczki_aktywne' => array_values( (array) get_option( 'active_plugins', array() ) ),
 			'skrypty'         => $lista,
 			'nota'            => 'Ta lista jest NIEPEŁNA z dwóch powodów i nie zastępuje inwentarza z przeglądarki. Po pierwsze: rejestr WordPressa widzi tylko skrypty dodane przez wp_enqueue_script, a piksele wklejone w motyw albo wstrzykiwane przez menedżera tagów nie przechodzą przez ten rejestr. Po drugie: wywołana przez REST, funkcja widzi wyłącznie skrypty zarejestrowane do momentu init — te z hooka wp_enqueue_scripts jeszcze nie istnieją. Pełny inwentarz robisz procedurą z ../inwentarz.md §2.',
+		);
+	}
+
+	/**
+	 * Dobór kompletu dokumentów prawnych do typu strony.
+	 *
+	 * Reguła, którą ta funkcja egzekwuje: strona bez sprzedaży online dostaje JEDEN dokument
+	 * z ciasteczkami w środku, sklep dostaje osobne. Powód nie jest estetyczny. Wizytówka ma
+	 * kilkanaście ciasteczek i jednego odbiorcę danych — rozbicie tego na dwie podstrony daje
+	 * dwa miejsca, w których trzeba pamiętać o aktualizacji, i dwie wersje, które mogą się
+	 * rozjechać z rejestrem zgód. Sklep ma tabelę na kilkadziesiąt wierszy plus płatności plus
+	 * remarketing — wklejona do polityki prywatności robi dokument, którego nikt nie doczyta
+	 * do sekcji o prawach osoby.
+	 *
+	 * Ta funkcja NIE generuje treści. Treść powstaje z faktycznego inwentarza skryptów
+	 * (skill cookies-rodo, `inwentarz.md`); szablon jest rusztowaniem, nie treścią.
+	 *
+	 * @param array $args Wejście.
+	 * @return array
+	 */
+	public static function op_dokumenty( $args = array() ) {
+		$typ = isset( $args['typ'] ) ? (string) $args['typ'] : '';
+		if ( ! in_array( $typ, array( 'wizytowka', 'ofertowa', 'sklep' ), true ) ) {
+			return array( 'ok' => false, 'blad' => 'Pole „typ" musi być jednym z: wizytowka, ofertowa, sklep.' );
+		}
+
+		$funkcje = array_map( 'strval', (array) ( isset( $args['funkcje'] ) ? $args['funkcje'] : array() ) );
+		$ma      = static function ( $co ) use ( $funkcje ) {
+			return in_array( $co, $funkcje, true );
+		};
+
+		// Kategorie skryptów nieniezbędnych: z wejścia, a gdy puste — z faktycznego stanu strony.
+		$kategorie  = array_map( 'strval', (array) ( isset( $args['kategorie'] ) ? $args['kategorie'] : array() ) );
+		$zrodlo_kat = 'z wejścia';
+		if ( empty( $kategorie ) ) {
+			$zrodlo_kat = 'z rejestru WordPressa — NIEPEŁNY, patrz nota przy inwentarz-skryptow';
+			$inw        = self::op_inwentarz();
+			foreach ( $inw['skrypty'] as $s ) {
+				if ( in_array( $s['kategoria'], array( 'analityczne', 'marketingowe' ), true ) && ! in_array( $s['kategoria'], $kategorie, true ) ) {
+					$kategorie[] = $s['kategoria'];
+				}
+			}
+		}
+		$sledzi = ! empty( $kategorie );
+
+		$sklep   = ( 'sklep' === $typ );
+		$wariant = $sklep ? 'sklepowy' : 'jednodokumentowy';
+		$d       = array();
+
+		/* --- Polityka prywatności: zawsze, w obu wariantach --- */
+		$sekcje_pp = array(
+			'Administrator danych osobowych',
+			'Po co przetwarzamy dane i na jakiej podstawie',
+			'Jak długo przechowujemy dane',
+			'Czy podanie danych jest obowiązkowe',
+			'Twoje uprawnienia',
+			'Zgoda i skarga do Prezesa UODO',
+			'Odbiorcy danych',
+			'Przekazywanie danych poza EOG',
+			'Bezpieczeństwo danych',
+			'Zautomatyzowane decyzje i profilowanie',
+			'Data przeglądu i zmiany polityki',
+		);
+		if ( ! $sklep ) {
+			// Ciasteczka wchodzą do środka, tuż przed sekcję o profilowaniu.
+			array_splice( $sekcje_pp, 9, 0, array( 'Pliki cookies' ) );
+		}
+		$d[] = array(
+			'slug'     => 'polityka-prywatnosci',
+			'tytul'    => 'Polityka prywatności',
+			'wymagany' => true,
+			'powod'    => $sklep
+				? 'RODO art. 13 — obowiązek informacyjny wobec każdej osoby, której dane zbierasz. W sklepie zbierasz je zawsze, przy pierwszym zamówieniu.'
+				: 'RODO art. 13 — obowiązek informacyjny. Ciasteczka siedzą W ŚRODKU tego dokumentu jako sekcja: strona bez sprzedaży nie ma na tyle dużej tabeli ciasteczek, żeby rozbicie na dwie podstrony cokolwiek dawało, a daje dwa miejsca do aktualizowania i dwie wersje do rozjechania się z rejestrem zgód.',
+			'sekcje'   => $sekcje_pp,
+			'szablon'  => $sklep ? 'szablony/komplet-sklepowy.md' : 'szablony/komplet-jednodokumentowy.md',
+		);
+
+		/* --- Polityka cookies: osobno tylko w sklepie --- */
+		if ( $sklep ) {
+			$d[] = array(
+				'slug'     => 'polityka-cookies',
+				'tytul'    => 'Polityka cookies',
+				'wymagany' => true,
+				'powod'    => 'OSOBNY dokument, bo w sklepie tabela ciasteczek ma kilkadziesiąt wierszy: koszyk, sesja, operator płatności, remarketing, porzucony koszyk. Wklejona do polityki prywatności zabija czytelność dokumentu, który ma odpowiedzieć na pytanie o dane osobowe.',
+				'sekcje'   => array(
+					'Czym są pliki cookies i dlaczego pytamy o zgodę na sam zapis',
+					'Kategorie: niezbędne, analityczne, marketingowe',
+					'Tabela: nazwa, dostawca, cel, czas życia',
+					'Jak wycofać albo zmienić zgodę',
+					'Ustawienia przeglądarki',
+					'Data przeglądu',
+				),
+				'szablon'  => 'szablony/komplet-sklepowy.md',
+			);
+		}
+
+		/* --- Regulamin: sprzedaż, konta albo usługa świadczona drogą elektroniczną --- */
+		$powod_reg = '';
+		if ( $sklep ) {
+			$powod_reg = 'Sprzedaż online. Regulamin określa zawarcie umowy, cenę, dostawę i reklamacje.';
+		} elseif ( $ma( 'konta' ) ) {
+			$powod_reg = 'Strona zakłada konta użytkownikom — to usługa świadczona drogą elektroniczną, więc regulamin jest wymagany mimo braku sklepu.';
+		} elseif ( $ma( 'platnosci' ) ) {
+			$powod_reg = 'Strona przyjmuje płatności — jest sprzedaż, więc jest umowa, więc jest regulamin.';
+		} elseif ( $ma( 'newsletter' ) ) {
+			$powod_reg = 'Newsletter jest usługą świadczoną drogą elektroniczną. Regulamin może być krótki i może być sekcją innego dokumentu, ale musi istnieć.';
+		}
+		if ( '' !== $powod_reg ) {
+			$d[] = array(
+				'slug'      => 'regulamin',
+				'tytul'     => 'Regulamin',
+				'wymagany'  => true,
+				'powod'     => $powod_reg,
+				'sekcje'    => array(
+					'Definicje',
+					'Dane sprzedawcy i kontakt',
+					'Wymagania techniczne',
+					'Składanie zamówienia i zawarcie umowy',
+					'Ceny i formy płatności',
+					'Dostawa i termin realizacji',
+					'Odstąpienie od umowy',
+					'Reklamacje i niezgodność towaru z umową',
+					'Pozasądowe sposoby rozpatrywania sporów',
+					'Postanowienia końcowe i zmiany regulaminu',
+				),
+				'szablon'   => 'szablony/komplet-sklepowy.md',
+				'kto_pisze' => 'PRAWNIK KLIENTA. To dokument handlowy, nie techniczny — my dajemy rusztowanie rozdziałów i zgłaszamy, że jest potrzebny (skill cookies-rodo, polityki.md §4).',
+			);
+		}
+
+		/* --- Zwroty i reklamacje oraz dane firmowe: gdy jest sprzedaż konsumentowi --- */
+		if ( $sklep || $ma( 'platnosci' ) ) {
+			$d[] = array(
+				'slug'      => 'zwroty-i-reklamacje',
+				'tytul'     => 'Zwroty, odstąpienie i reklamacje',
+				'wymagany'  => true,
+				'powod'     => 'Prawo odstąpienia w 14 dni i tryb reklamacyjny muszą być podane konsumentowi przed zawarciem umowy. Osobna podstrona, bo klient szuka tego wtedy, gdy ma problem — a wtedy nie będzie tego szukał w §8 regulaminu.',
+				'sekcje'    => array(
+					'Termin 14 dni i od kiedy biegnie',
+					'Jak złożyć oświadczenie o odstąpieniu — wzór formularza',
+					'Wyłączenia prawa odstąpienia',
+					'Kto płaci za odesłanie i kiedy wracają pieniądze',
+					'Reklamacja: niezgodność towaru z umową',
+					'Termin rozpatrzenia i ścieżka odwoławcza',
+				),
+				'szablon'   => 'szablony/komplet-sklepowy.md',
+				'kto_pisze' => 'PRAWNIK KLIENTA — jak wyżej.',
+			);
+
+			$d[] = array(
+				'slug'     => 'dane-firmowe',
+				'tytul'    => 'Dane firmowe',
+				'wymagany' => false,
+				'powod'    => 'Nazwa, forma prawna, adres, NIP, REGON, KRS i kontakt muszą być dostępne konsumentowi przed zawarciem umowy. Zwykle siedzą tylko w §2 regulaminu — osobna podstrona kosztuje nic i zdejmuje spór o to, czy są „łatwo dostępne".',
+				'sekcje'   => array(
+					'Pełna nazwa i forma prawna',
+					'Adres siedziby i adres do korespondencji',
+					'NIP, REGON, KRS albo wpis do CEIDG',
+					'Telefon i adres e-mail',
+					'Numer rachunku do zwrotów',
+				),
+				'szablon'  => 'szablony/komplet-sklepowy.md',
+			);
+
+			/*
+			 * Dostępność (European Accessibility Act) — dyrektywa 2019/882 art. 2 ust. 2 lit. f
+			 * obejmuje usługi handlu elektronicznego świadczone konsumentom po 28.06.2025.
+			 * Polskie wdrożenie: ustawa z 26.04.2024, Dz.U. 2024 poz. 731, w życie 28.06.2025.
+			 *
+			 * DWIE rzeczy, które rozstrzygają, czy w ogóle jest o czym mówić:
+			 *
+			 * 1. Mikroprzedsiębiorca świadczący usługi jest ZWOLNIONY W CAŁOŚCI — dyrektywa
+			 *    art. 4 ust. 5, ustawa art. 4. Próg (art. 3 pkt 23): mniej niż 10 osób ORAZ
+			 *    obrót albo suma bilansowa do 2 mln EUR. To jest większość portfela małej
+			 *    agencji, więc domyślną odpowiedzią jest „nie dotyczy", a nie „dokupcie".
+			 * 2. Gdy dotyczy, obowiązek jest PUBLIKACYJNY, ale polska ustawa (art. 32 pkt 1
+			 *    lit. c) wskazuje nośnik: „w regulaminie świadczenia usług lub innym
+			 *    równoważnym dokumencie". Czyli częściej rozdział regulaminu niż osobna
+			 *    podstrona — i dlatego to nie jest automatycznie szósty dokument.
+			 *
+			 * Bez podanych progów NIE ZGADUJEMY. Brak danych wraca jako pytanie do klienta,
+			 * bo obie odpowiedzi w ciemno są kosztowne: „nie dotyczy" ukrywa realny obowiązek,
+			 * „dotyczy" sprzedaje mikrofirmie dokument, którego prawo od niej nie wymaga.
+			 */
+			$prac  = isset( $args['pracownikow'] ) ? (int) $args['pracownikow'] : null;
+			$obrot = isset( $args['obrot_mln_eur'] ) ? (float) $args['obrot_mln_eur'] : null;
+
+			if ( null === $prac && null === $obrot ) {
+				$dostepnosc = array(
+					'stan'  => 'PYTANIE DO KLIENTA',
+					'powod' => 'Nie wiadomo, czy klient jest mikroprzedsiębiorcą. Zapytaj o liczbę pracowników i roczny obrót, potem wywołaj to ability ponownie z polami „pracownikow" i „obrot_mln_eur". Zgadywanie kosztuje w obie strony: „nie dotyczy" ukrywa realny obowiązek publikacyjny, „dotyczy" sprzedaje mikrofirmie dokument, którego prawo od niej nie wymaga.',
+				);
+			} elseif ( ( null !== $prac && $prac < 10 ) && ( null === $obrot || $obrot <= 2.0 ) ) {
+				$dostepnosc = array(
+					'stan'  => 'nie dotyczy — mikroprzedsiębiorca',
+					'powod' => 'Mniej niż 10 osób i obrót do 2 mln EUR. Usługi mikroprzedsiębiorcy są zwolnione w całości — dyrektywa 2019/882 art. 4 ust. 5, ustawa z 26.04.2024 (Dz.U. 2024 poz. 731) art. 4. Zwolnienie dotyczy USŁUG; producent albo importer produktu objętego ustawą się z niego nie wypisuje. Utrata statusu mikro włącza pełne obowiązki — to nie jest zwolnienie na stałe. Dostępność nadal buduj w kodzie: klient mikro traci klientów na kontraście 2:1 i niedziałającej klawiaturze niezależnie od tego, czy ma taki obowiązek.',
+				);
+			} else {
+				$dostepnosc = array(
+					'stan'  => 'DOTYCZY — obowiązek publikacyjny',
+					'powod' => 'Powyżej progu mikroprzedsiębiorcy. Sklep internetowy jest usługą handlu elektronicznego (dyrektywa 2019/882 art. 2 ust. 2 lit. f, od 28.06.2025). Obowiązkiem jest nie tylko spełnienie wymagań technicznych, ale OSOBNO opublikowanie informacji o tym, w jaki sposób usługa je spełnia — dyrektywa art. 13 ust. 2, ustawa art. 32 pkt 1 lit. c.',
+					'gdzie' => 'Polska ustawa wskazuje nośnik: „w regulaminie świadczenia usług lub innym równoważnym dokumencie". Domyślnie ROZDZIAŁ REGULAMINU, nie osobna podstrona. Osobna podstrona tylko wtedy, gdy klient chce ją mieć widoczną — prawo tego nie wymaga.',
+					'standard' => 'EN 301 549 V3.2.1 wciąga WCAG 2.1 poziom A i AA. Ani dyrektywa, ani ustawa nie wymieniają WCAG z nazwy — działa domniemanie zgodności z normą zharmonizowaną (ustawa art. 20). EN 301 549 V4.x podnosi bazę do WCAG 2.2 AA; celuj w 2.1 AA jako minimum, projektuj pod 2.2 AA.',
+					'rynek' => 'Żaden z trzech przebadanych 2026-08-21 polskich sklepów (2b3sport.pl, resibo.pl, hop-sport.pl) nie ma niczego o dostępności — także te z sześcioma i ośmioma dokumentami. Termin minął ponad rok temu. Dla klienta powyżej progu to jednocześnie realna przewaga i realne ryzyko.',
+				);
+				$d[] = array(
+					'slug'      => 'informacja-o-dostepnosci',
+					'tytul'     => 'Informacja o dostępności',
+					'wymagany'  => true,
+					'powod'     => 'Ustawa z 26.04.2024 (Dz.U. 2024 poz. 731) art. 32 pkt 1 lit. c: usługodawca podaje do publicznej wiadomości informację o tym, w jaki sposób usługa spełnia wymagania dostępności. Klient jest powyżej progu mikroprzedsiębiorcy, więc obowiązek istnieje.',
+					'sekcje'    => array(
+						'Do jakiej usługi odnosi się ta informacja',
+						'Jak sklep spełnia wymagania dostępności — konkretne rozwiązania, nie deklaracja',
+						'Standard, wobec którego to mierzono (EN 301 549 / WCAG 2.1 AA)',
+						'Elementy, które wymagań jeszcze nie spełniają, i termin naprawy',
+						'Dostępne sposoby kontaktu i zgłoszenia problemu z dostępnością',
+						'Data ostatniego przeglądu dostępności',
+					),
+					'szablon'   => 'szablony/komplet-sklepowy.md',
+					'kto_pisze' => 'MY — ale dopiero po audycie dostępności, nie przed. Ten dokument opisuje stan faktyczny sklepu, więc bez pomiaru byłby zmyślony dokładnie tak samo jak polityka cookies z szablonu.',
+					'uwaga'     => 'Może być ROZDZIAŁEM REGULAMINU zamiast osobnej podstrony — ustawa dopuszcza „inny równoważny dokument". Osobna podstrona jest wyborem, nie wymogiem.',
+				);
+			}
+		} else {
+			$dostepnosc = array(
+				'stan'  => 'nie dotyczy',
+				'powod' => 'European Accessibility Act obejmuje usługi handlu elektronicznego. Strona bez sprzedaży online nie jest usługą handlu elektronicznego w rozumieniu dyrektywy 2019/882 art. 3 pkt 30. Dostępność buduj mimo to — z powodu użytkowników, nie z powodu przepisu.',
+			);
+		}
+
+		/* --- Status: czy taka podstrona już istnieje --- */
+		$u = Nerti_Cookies_Ustawienia::pobierz();
+		foreach ( $d as $i => $poz ) {
+			// Tylko OPUBLIKOWANE. get_page_by_path() zwraca też szkice, a domyślny WordPress
+			// zakłada szkic "polityka-prywatnosci" na każdej instalacji — bez tego warunku
+			// ability mówiłoby "jest" o dokumencie, którego nikt nigdy nie zobaczył.
+			$strona = get_page_by_path( $poz['slug'] );
+			$url    = ( $strona && 'publish' === get_post_status( $strona ) ) ? get_permalink( $strona ) : '';
+			if ( '' === $url && 'polityka-prywatnosci' === $poz['slug'] && ! empty( $u['link_polityka'] ) ) {
+				$url = (string) $u['link_polityka'];
+			}
+			if ( '' === $url && 'polityka-cookies' === $poz['slug'] && ! empty( $u['link_cookies'] ) ) {
+				$url = (string) $u['link_cookies'];
+			}
+			$d[ $i ]['url']    = $url;
+			$d[ $i ]['status'] = '' !== $url ? 'jest' : 'BRAK';
+		}
+
+		$brakujace = array();
+		foreach ( $d as $poz ) {
+			if ( 'BRAK' === $poz['status'] ) {
+				$brakujace[] = $poz['slug'];
+			}
+		}
+
+		/*
+		 * Rzeczy, które nie są dokumentem, a bez których komplet nie działa.
+		 * Pierwsza pozycja jest wynikiem pomiaru, nie przeczucia: na trzech zbadanych polskich
+		 * stronach usługowych (gabinet, kancelaria, producent) ŻADNA nie miała w stopce linku
+		 * ponownie otwierającego baner. Wycofanie zgody było albo pod pływającą ikonką wtyczki,
+		 * albo nie istniało wcale.
+		 */
+		$dodatkowo = array(
+			'Link „Ustawienia plików cookies" w stopce KAŻDEJ podstrony, ponownie otwierający baner. Bez niego wycofanie zgody jest nieosiągalne — to jest bloker Q-COOKIE, nie kosmetyka.',
+			'Link do polityki prywatności przy KAŻDYM formularzu, nie tylko w stopce.',
+			'Data przeglądu w każdym dokumencie plus wersja zgodna z `wersja_polityki` we wtyczce. Zmiana treści = wywołanie podnies-wersje-polityki, inaczej rejestr dowodzi zgody na tekst, którego nikt nie widział.',
+		);
+		if ( $sledzi ) {
+			$dodatkowo[] = 'Na stronie są skrypty nieniezbędne (' . implode( ', ', array_unique( $kategorie ) ) . '; źródło: ' . $zrodlo_kat . '). Każdy musi być wymieniony z nazwy w tabeli ciasteczek i jako odbiorca danych. Zero pozycji z szablonu.';
+		} else {
+			$dodatkowo[] = 'Nie wykryto skryptów nieniezbędnych (źródło: ' . $zrodlo_kat . '). Zanim uznasz, że ich nie ma, zrób inwentarz w przeglądarce — rejestr WordPressa nie widzi pikseli wklejonych w motyw ani wstrzykiwanych przez menedżera tagów.';
+		}
+
+		return array(
+			'wariant'      => $wariant,
+			'typ'          => $typ,
+			'dokumenty'    => $d,
+			'brakujace'    => $brakujace,
+			'dodatkowo'    => $dodatkowo,
+			'dostepnosc'   => $dostepnosc,
+			'zastrzezenie' => 'To nie jest porada prawna. To jest dobór kompletu dokumentów do typu strony i lista braków, nie ocena zgodności. Regulamin i dokument o zwrotach pisze prawnik klienta — my dostarczamy rusztowanie i zgłaszamy, że są potrzebne. Pełne brzmienie zastrzeżenia, które idzie do klienta razem z każdym wygenerowanym dokumentem: skill cookies-rodo, polityki.md §5.',
+			'nota'         => 'Lista dokumentów pochodzi z typu strony i z pola „funkcje". Ich TREŚĆ pochodzi z inwentarza skryptów, nie z szablonu. Kolejność pozycji w tablicy „dokumenty" jest kolejnością wdrożenia.',
 		);
 	}
 }
