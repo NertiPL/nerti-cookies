@@ -79,19 +79,55 @@ class Nerti_Cookies_Baner {
 			<div class="nc-baner__panel">
 
 				<div class="nc-baner__glowny">
-					<h2 id="nc-tytul" class="nc-baner__tytul" data-nc-tekst="tytul"><?php echo esc_html( $t['tytul'] ); ?></h2>
-					<p id="nc-tresc" class="nc-baner__tresc" data-nc-tekst="tresc"><?php echo esc_html( $t['tresc'] ); ?></p>
 
-					<?php if ( ! empty( $u['link_polityka'] ) || ! empty( $u['link_cookies'] ) ) : ?>
-						<p class="nc-baner__linki">
-							<?php if ( ! empty( $u['link_polityka'] ) ) : ?>
-								<a href="<?php echo esc_url( $u['link_polityka'] ); ?>"><?php echo esc_html( $t['polityka'] ); ?></a>
-							<?php endif; ?>
-							<?php if ( ! empty( $u['link_cookies'] ) ) : ?>
-								<a href="<?php echo esc_url( $u['link_cookies'] ); ?>"><?php echo esc_html( $t['cookies'] ); ?></a>
-							<?php endif; ?>
-						</p>
-					<?php endif; ?>
+					<?php
+					/*
+					 * Nagłówek jest wierszem: ikona i kolumna z tekstem. Domyślne tokeny
+					 * ustawiają kierunek `column` i chowają ikonę, więc bez konfiguracji
+					 * wygląda dokładnie jak wcześniej. Projekt zmienia się SAMYMI tokenami
+					 * --nc-*, bez nadpisywania selektorów wtyczki — przepisywanie cudzych
+					 * selektorów jest tym, co potem rozjeżdża się przy aktualizacji.
+					 */
+					?>
+					<div class="nc-baner__glowica">
+						<span class="nc-baner__ikona" aria-hidden="true"></span>
+						<div class="nc-baner__kolumna">
+							<h2 id="nc-tytul" class="nc-baner__tytul" data-nc-tekst="tytul"><?php echo esc_html( $t['tytul'] ); ?></h2>
+							<?php
+							/*
+							 * Odnośniki do dokumentów siedzą W AKAPICIE, nie pod nim. Domyślny token
+							 * `--nc-linki-display: flex` stawia je w osobnym wierszu jak dotąd;
+							 * `inline` wpuszcza je w zdanie. Sam znacznik musi być w środku, bo
+							 * CSS nie przenosi węzłów — a to jedyna różnica, której nie da się
+							 * potem nadrobić stylem.
+							 */
+							?>
+							<p id="nc-tresc" class="nc-baner__tresc" data-nc-tekst="tresc"><?php
+								echo esc_html( $t['tresc'] );
+								if ( ! empty( $u['link_polityka'] ) || ! empty( $u['link_cookies'] ) ) :
+									?> <span class="nc-baner__linki"><?php
+									if ( ! empty( $u['link_polityka'] ) ) :
+										?><a href="<?php echo esc_url( $u['link_polityka'] ); ?>"><?php echo esc_html( $t['polityka'] ); ?></a><?php
+									endif;
+									if ( ! empty( $u['link_cookies'] ) ) :
+										?><a href="<?php echo esc_url( $u['link_cookies'] ); ?>"><?php echo esc_html( $t['cookies'] ); ?></a><?php
+									endif;
+									?></span><?php
+								endif;
+							?></p>
+						</div>
+						<?php
+						/*
+						 * Zamknięcie ZAPISUJE decyzję zgodną z aktualnym stanem przełączników
+						 * (domyślnie: tylko niezbędne). Krzyżyk, który jedynie chowa baner bez
+						 * zapisu, oznaczałby ponowne pytanie przy następnej podstronie — albo,
+						 * gorzej, milczące potraktowanie zamknięcia jako zgody.
+						 * Domyślnie schowany tokenem, żeby nie zmieniać wyglądu istniejących stron.
+						 */
+						?>
+						<button type="button" class="nc-baner__zamknij" data-nc-akcja="zamknij"
+							aria-label="<?php echo esc_attr( isset( $t['zamknij'] ) ? $t['zamknij'] : 'Zamknij' ); ?>"></button>
+					</div>
 
 					<?php
 					/*
@@ -100,6 +136,45 @@ class Nerti_Cookies_Baner {
 					 * stoi na PIERWSZYM ekranie i wymaga tej samej liczby kliknięć.
 					 * Zamiana tego na link w szarym tekście jest defektem prawnym,
 					 * nie decyzją projektową — i jest najczęstszym defektem na rynku.
+					 */
+					?>
+<div id="nc-ustawienia" class="nc-baner__ustawienia" hidden>
+					<ul class="nc-kategorie">
+						<?php
+						foreach ( $u['kategorie'] as $id_kat => $kat ) :
+							if ( ! empty( $kat['ukryta'] ) ) {
+								continue;
+							}
+							?>
+							<?php
+							/*
+							 * Kolejność w znaczniku: najpierw tekst, potem przełącznik. Tokeny
+							 * `--nc-kat-kierunek: row` stawiają go z prawej, domyślna kolumna
+							 * odtwarza poprzedni układ. Etykieta obejmuje całość, więc kliknięcie
+							 * w opis też przełącza — inaczej cel dotyku to sam kwadracik.
+							 */
+							?>
+							<li class="nc-kategoria">
+								<label class="nc-kategoria__etykieta">
+									<span class="nc-kategoria__tresc">
+										<span class="nc-kategoria__nazwa"><?php echo esc_html( $kat['nazwa'] ); ?></span>
+										<span class="nc-kategoria__opis"><?php echo esc_html( $kat['opis'] ); ?></span>
+									</span>
+									<input type="checkbox" class="nc-kategoria__pole"
+										value="<?php echo esc_attr( $id_kat ); ?>"
+										<?php checked( (bool) $kat['domyslnie'] ); ?>
+										<?php disabled( (bool) $kat['wymagana'] ); ?>>
+								</label>
+							</li>
+						<?php endforeach; ?>
+					</ul>
+				</div>
+					<?php
+					/*
+					 * Blok akcji stoi PO liście kategorii, nie przed nią: po rozwinięciu
+					 * lista jest tym, na co się patrzy, a przyciski zamykają decyzję pod nią.
+					 * Zwinięty panel ma listę schowaną, więc kolejność na pierwszym ekranie
+					 * jest ta sama co dotąd.
 					 */
 					?>
 					<div class="nc-baner__akcje">
@@ -113,31 +188,13 @@ class Nerti_Cookies_Baner {
 							aria-expanded="false" aria-controls="nc-ustawienia">
 							<?php echo esc_html( $t['ustawienia'] ); ?>
 						</button>
-					</div>
-				</div>
-
-				<div id="nc-ustawienia" class="nc-baner__ustawienia" hidden>
-					<ul class="nc-kategorie">
-						<?php foreach ( $u['kategorie'] as $id_kat => $kat ) : ?>
-							<li class="nc-kategoria">
-								<label class="nc-kategoria__etykieta">
-									<input type="checkbox" class="nc-kategoria__pole"
-										value="<?php echo esc_attr( $id_kat ); ?>"
-										<?php checked( (bool) $kat['domyslnie'] ); ?>
-										<?php disabled( (bool) $kat['wymagana'] ); ?>>
-									<span class="nc-kategoria__nazwa"><?php echo esc_html( $kat['nazwa'] ); ?></span>
-								</label>
-								<p class="nc-kategoria__opis"><?php echo esc_html( $kat['opis'] ); ?></p>
-							</li>
-						<?php endforeach; ?>
-					</ul>
-					<div class="nc-baner__akcje">
-						<button type="button" class="nc-btn nc-btn--rowny" data-nc-akcja="zapisz" data-nc-tekst="zapisz">
+						<button type="button" class="nc-btn nc-btn--tekst nc-btn--zapisz" data-nc-akcja="zapisz" data-nc-tekst="zapisz" hidden>
 							<?php echo esc_html( $t['zapisz'] ); ?>
 						</button>
 					</div>
 				</div>
 
+				
 			</div>
 		</div>
 		<?php

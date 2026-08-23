@@ -145,6 +145,7 @@ class Nerti_Cookies_Ustawienia {
 				'odrzuc'       => 'Odrzucam wszystkie',
 				'ustawienia'   => 'Wybieram sam',
 				'zapisz'       => 'Zapisz mój wybór',
+				'zamknij'      => 'Zamknij bez zmiany ustawień',
 				'polityka'     => 'Polityka prywatności',
 				'cookies'      => 'Polityka cookies',
 				'wycofaj'      => 'Zmień zgodę na ciasteczka',
@@ -264,6 +265,17 @@ class Nerti_Cookies_Ustawienia {
 		$u = self::pobierz();
 		$k = array();
 		foreach ( $u['kategorie'] as $id => $kat ) {
+			/*
+			 * Kategoria „ukryta" znika z banera, ale ZOSTAJE w mapach skryptów i osadzeń.
+			 * Po co: strona, która dziś nie prowadzi marketingu, nie ma o co pytać —
+			 * zgoda na coś, czego się nie robi, jest pusta i musiałaby być opisana
+			 * w polityce. Gdy marketing wejdzie, wystarczy zdjąć flagę: mapy, wzorce
+			 * i blokada są już na miejscu, a do tego czasu te skrypty pozostają
+			 * zablokowane, bo zgoda nigdy nie zostaje udzielona.
+			 */
+			if ( ! empty( $kat['ukryta'] ) ) {
+				continue;
+			}
 			$k[] = array(
 				'id'         => $id,
 				'nazwa'      => $kat['nazwa'],
@@ -364,6 +376,7 @@ class Nerti_Cookies_Ustawienia {
 			'akceptuj'      => array( 'Przycisk zgody', 'Drugi przycisk na pierwszym ekranie, tej samej wielkości co odmowa.', false ),
 			'ustawienia'    => array( 'Wejście w wybór szczegółowy', 'Trzeci element pierwszego ekranu — rozwija listę kategorii.', false ),
 			'zapisz'        => array( 'Zapis wyboru szczegółowego', 'Przycisk pod listą kategorii, widoczny po rozwinięciu.', false ),
+			'zamknij'       => array( 'Opis krzyżyka', 'Czyta go czytnik ekranu; sam krzyżyk pokazuje się tylko wtedy, gdy projekt go włączy. Zamknięcie zapisuje decyzję zgodną z przełącznikami, nie omija jej.', false ),
 			'polityka'      => array( 'Podpis linku do polityki prywatności', 'Widoczny w banerze tylko wtedy, gdy adres polityki jest uzupełniony w zakładce Stan.', false ),
 			'cookies'       => array( 'Podpis linku do polityki cookies', 'Jak wyżej — pokazuje się tylko przy uzupełnionym adresie.', false ),
 			'wycofaj'       => array( 'Link wycofania zgody', 'Tekst przycisku ze skrótu [nerti_cookies_ustawienia], zwykle w stopce.', false ),

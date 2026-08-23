@@ -264,13 +264,35 @@
 			zastosuj( zestaw( true ), 'akceptuj' );
 		} else if ( 'odrzuc' === akcja ) {
 			zastosuj( zestaw( false ), 'odrzuc' );
+		} else if ( 'zamknij' === akcja ) {
+			/* Zamknięcie to decyzja, nie ucieczka od niej: zapisujemy stan przełączników. */
+			zastosuj( zWyboru(), 'wybor' );
 		} else if ( 'zapisz' === akcja ) {
 			zastosuj( zWyboru(), 'wybor' );
 		} else if ( 'pokaz-ustawienia' === akcja ) {
 			if ( panelUstawien ) {
 				var otwarty = ! panelUstawien.hidden;
+				if ( ! otwarty ) {
+					/*
+					 * Rozwinięcie panelu zaznacza wszystkie kategorie.
+					 * UWAGA PRAWNA: RODO wymaga zgody czynnej, więc domyślnie zaznaczone
+					 * przełączniki nie są ważną zgodą (TSUE, Planet49, C-673/17). Zostało
+					 * tak na wyraźne życzenie właściciela strony. Cofnięcie to skasowanie
+					 * tego bloku — reszta mechanizmu tego nie zauważy.
+					 */
+					Array.prototype.forEach.call(
+						panelUstawien.querySelectorAll( '.nc-kategoria__pole' ),
+						function ( p ) { p.checked = true; }
+					);
+				}
 				panelUstawien.hidden = otwarty;
 				cel.setAttribute( 'aria-expanded', otwarty ? 'false' : 'true' );
+				/* Po rozwinięciu „Dostosuj" nie ma już czego robić — jego miejsce zajmuje
+				   „Zapisz mój wybór" pod listą. Dwa przyciski o tej samej roli obok siebie
+				   to pytanie, na które użytkownik nie umie odpowiedzieć. */
+				cel.hidden = ! otwarty;
+				var zapisz = baner.querySelector( '[data-nc-akcja="zapisz"]' );
+				if ( zapisz ) { zapisz.hidden = otwarty; }
 			}
 		} else if ( 'otworz' === akcja ) {
 			var stan = czytaj();

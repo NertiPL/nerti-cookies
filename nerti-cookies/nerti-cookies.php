@@ -3,7 +3,7 @@
  * Plugin Name:       Nerti Cookies
  * Plugin URI:        https://github.com/NertiPL/nerti-cookies
  * Description:       Baner zgód, który blokuje skrypty PRZED zgodą, nie po niej. Kategorie, rejestr zgód z wersją polityki, odmowa tak samo łatwa jak zgoda na pierwszym ekranie, wygląd brany z design-system.json projektu albo z ustawień globalnych Oxygena.
- * Version:           0.2.1
+ * Version:           0.2.2
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            Nerti
@@ -35,7 +35,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'NERTI_COOKIES_WERSJA', '0.2.1' );
+define( 'NERTI_COOKIES_WERSJA', '0.2.2' );
 define( 'NERTI_COOKIES_PLIK', __FILE__ );
 define( 'NERTI_COOKIES_KAT', plugin_dir_path( __FILE__ ) );
 define( 'NERTI_COOKIES_URL', plugin_dir_url( __FILE__ ) );
@@ -52,6 +52,7 @@ require_once NERTI_COOKIES_KAT . 'inc/class-blokada.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-baner.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-rejestr.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-abilities.php';
+require_once NERTI_COOKIES_KAT . 'inc/class-czujka.php';
 
 /*
  * Aktualizacje z GitHub Releases. Wczytywane BEZWARUNKOWO: plik tylko dokłada filtry,
@@ -73,6 +74,7 @@ function nerti_cookies_start() {
 	Nerti_Cookies_Baner::hooks();
 	Nerti_Cookies_Rejestr::hooks();
 	Nerti_Cookies_Abilities::hooks();
+	Nerti_Cookies_Czujka::hooks();
 }
 add_action( 'plugins_loaded', 'nerti_cookies_start', 1 );
 

@@ -33,6 +33,9 @@ class Nerti_Cookies_Blokada {
 		if ( is_admin() || wp_doing_ajax() || is_feed() ) {
 			return false;
 		}
+		if ( self::czy_edytor() ) {
+			return false;
+		}
 		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
 			return false;
 		}
@@ -43,6 +46,39 @@ class Nerti_Cookies_Blokada {
 			return false;
 		}
 		return true;
+	}
+
+	/**
+	 * Podgląd w edytorze wizualnym to nie jest wizyta użytkownika.
+	 *
+	 * Baner jest przyklejony do okna, więc w edytorze zasłania róg płótna i wchodzi
+	 * w każdy zrzut kontrolny — a zgody i tak nie da się tam sensownie podjąć.
+	 * Rozpoznajemy budowniczych po ich własnych parametrach żądania; lista jest
+	 * jawna, bo cicha heurystyka („jest zalogowany, więc pewnie edytuje") wyłączałaby
+	 * baner także wtedy, gdy właściciel po prostu ogląda swoją stronę.
+	 *
+	 * @return bool
+	 */
+	public static function czy_edytor() {
+		$znaczniki = array(
+			'breakdance',          // Oxygen 6 / Breakdance — panel budowniczego
+			'breakdance_iframe',   // Oxygen 6 / Breakdance — ramka z podglądem
+			'elementor-preview',
+			'brizy-edit',
+			'brizy-edit-iframe',
+			'et_fb',               // Divi
+			'fl_builder',          // Beaver Builder
+			'bricks',              // Bricks
+		);
+		foreach ( $znaczniki as $z ) {
+			if ( isset( $_GET[ $z ] ) && '' !== $_GET[ $z ] ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				return true;
+			}
+		}
+		if ( 'breakdance_server_side_render' === filter_input( INPUT_POST, 'action' ) ) {
+			return true;
+		}
+		return (bool) apply_filters( 'nerti_cookies_czy_edytor', false );
 	}
 
 	/**

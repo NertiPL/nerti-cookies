@@ -18,6 +18,19 @@
  * desktopu (Nerti_Cookies_Tokeny::css_wygladu) w dwóch blokach @media wokół
  * jedynego breakpointu banera: 48rem.
  */
+/*
+ * Atrybut `hidden` musi wygrywać z każdą regułą tej wtyczki.
+ * Bez tego `display: flex` z klasy bije regułę przeglądarki dla [hidden] — baner
+ * zostaje na ekranie po kliknięciu „Akceptuj", a przy kolejnej wizycie wstaje mimo
+ * zapisanej decyzji. Objaw wygląda jak martwy przycisk, więc szuka się go w JS.
+ * Jedna reguła zamiast wyliczania elementów: dotyczy też panelu i przycisków w środku.
+ */
+[hidden].nc-baner,
+.nc-baner [hidden],
+[hidden].nc-osadzenie {
+	display: none !important;
+}
+
 .nc-baner {
 	position: fixed;
 	inset: 0;
@@ -51,23 +64,94 @@
 	overflow-y: auto;
 }
 
+/*
+ * Nagłówek: ikona obok kolumny z tekstem. Domyślnie kolumna i ikona schowana,
+ * czyli render bez zmian dla stron, które nic nie ustawiają.
+ */
+.nc-baner__glowica {
+	display: flex;
+	flex-direction: var(--nc-glowica-kierunek, column);
+	align-items: var(--nc-glowica-align, stretch);
+	gap: var(--nc-glowica-gap, 0);
+}
+
+.nc-baner__kolumna {
+	min-width: 0;
+}
+
+/*
+ * Ikona jest pustym kwadratem malowanym tłem, nie plikiem w znaczniku: dzięki temu
+ * cały jej wygląd — rysunek, kolor, tło, promień — wchodzi tokenami z projektu
+ * i nie wymaga wgrywania niczego do biblioteki mediów.
+ */
+.nc-baner__ikona {
+	display: var(--nc-ikona-display, none);
+	flex: 0 0 auto;
+	width: var(--nc-ikona-rozmiar, 44px);
+	height: var(--nc-ikona-rozmiar, 44px);
+	border-radius: var(--nc-ikona-radius, 12px);
+	background-color: var(--nc-ikona-tlo, transparent);
+	background-image: var(--nc-ikona-obraz, none);
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: var(--nc-ikona-obraz-rozmiar, 22px);
+}
+
+.nc-baner__zamknij {
+	display: var(--nc-zamknij-display, none);
+	flex: 0 0 auto;
+	margin: var(--nc-zamknij-margin, 0 0 0 auto);
+	width: var(--nc-zamknij-rozmiar, 36px);
+	height: var(--nc-zamknij-rozmiar, 36px);
+	padding: 0;
+	border: 0;
+	border-radius: var(--nc-zamknij-radius, 8px);
+	/*
+	 * Dwa sposoby na rysunek krzyżyka. `--nc-zamknij-obraz` to zwykłe tło: prostsze,
+	 * ale kolor jest zaszyty w pliku SVG i nie da się go zmienić na hover. `--nc-zamknij-maska`
+	 * wycina kształt z jednolitego tła, więc kolorem steruje `--nc-zamknij-kolor`
+	 * i może się płynnie zmieniać. Projekt z hoverem wybiera maskę.
+	 */
+	background-color: var(--nc-zamknij-kolor, transparent);
+	background-image: var(--nc-zamknij-obraz, none);
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: var(--nc-zamknij-obraz-rozmiar, 20px);
+	-webkit-mask: var(--nc-zamknij-maska, none) center / var(--nc-zamknij-obraz-rozmiar, 20px) no-repeat;
+	mask: var(--nc-zamknij-maska, none) center / var(--nc-zamknij-obraz-rozmiar, 20px) no-repeat;
+	transition: background-color var(--nc-dur, 200ms) var(--nc-ease, ease);
+	cursor: pointer;
+}
+
+.nc-baner__zamknij:hover {
+	background-color: var(--nc-zamknij-kolor-hover, var(--nc-zamknij-kolor, transparent));
+}
+
 .nc-baner__tytul {
 	font-family: var(--nc-font-head, inherit);
 	font-size: var(--nc-fs-head, 1.25rem);
-	margin: 0 0 .5em;
+	line-height: var(--nc-lh-head, 1.2);
+	color: var(--nc-head-color, inherit);
+	margin: 0 0 var(--nc-head-margin, .5em);
 }
 
 .nc-baner__tresc {
-	margin: 0 0 var(--nc-gap, 1rem);
-	max-width: 60ch;
+	margin: var(--nc-tresc-margin, 0 0 var(--nc-gap, 1rem));
+	color: var(--nc-tresc-color, inherit);
+	max-width: var(--nc-tresc-szer, 60ch);
 }
 
 .nc-baner__linki {
 	margin: 0 0 var(--nc-gap, 1rem);
 	font-size: var(--nc-fs-sm, .9375rem);
-	display: flex;
+	display: var(--nc-linki-display, flex);
 	flex-wrap: wrap;
 	gap: var(--nc-gap, 1rem);
+}
+
+/* Wpuszczone w zdanie: pionowe marginesy blokowe przestają obowiązywać, ale zerujemy je jawnie. */
+.nc-baner__linki:not(:only-child) {
+	margin-inline-start: 0;
 }
 
 .nc-baner__linki a {
@@ -77,7 +161,7 @@
 .nc-baner__akcje {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--nc-gap, 1rem);
+	gap: var(--nc-gap-akcje, var(--nc-gap, 1rem));
 	align-items: stretch;
 }
 
@@ -95,7 +179,19 @@
 	padding: .625rem 1.25rem;
 	border-radius: var(--nc-radius, 8px);
 	border: 1px solid var(--nc-border, rgba(0, 0, 0, .2));
-	transition: filter var(--nc-dur, 200ms) var(--nc-ease, ease);
+	/*
+	 * Przejście obejmuje WSZYSTKIE właściwości, które zmieniają się na hover, nie samo
+	 * `filter`. Projekt, który podmienia kolory tła i obrysu, dostawał je natychmiast —
+	 * przycisk „przeskakiwał" zamiast płynnie zmieniać stan, mimo poprawnych kolorów.
+	 */
+	transition:
+		filter var(--nc-dur, 200ms) var(--nc-ease, ease),
+		background-color var(--nc-dur, 200ms) var(--nc-ease, ease),
+		border-color var(--nc-dur, 200ms) var(--nc-ease, ease),
+		color var(--nc-dur, 200ms) var(--nc-ease, ease);
+	/* Etykieta zgody ma się mieścić w jednej linii — zawinięta wychodzi poza przycisk
+	   o stałej wysokości i wygląda na uszkodzoną. Token, bo dłuższe języki mogą chcieć inaczej. */
+	white-space: var(--nc-btn-zawijanie, nowrap);
 }
 
 .nc-btn--rowny {
@@ -114,8 +210,13 @@
 	text-underline-offset: .2em;
 }
 
+/*
+ * Rozjaśnienie jest zapasem dla stron, które nie podają własnych kolorów hover.
+ * Projekt z jawnymi kolorami wyłącza je tokenem — inaczej dokłada się do nich
+ * i przycisk wychodzi jaśniejszy, niż zaprojektowano.
+ */
 .nc-btn:hover {
-	filter: brightness(1.08);
+	filter: var(--nc-btn-hover-filtr, brightness(1.08));
 }
 
 .nc-btn:focus-visible,
@@ -126,43 +227,105 @@
 }
 
 .nc-baner__ustawienia {
-	margin-top: var(--nc-gap, 1rem);
-	padding-top: var(--nc-gap, 1rem);
+	margin-top: var(--nc-ustawienia-margin-top, var(--nc-gap, 1rem));
+	padding-top: var(--nc-ustawienia-padding-top, var(--nc-gap, 1rem));
 	border-top: 1px solid var(--nc-border, rgba(0, 0, 0, .12));
 }
 
 .nc-kategorie {
 	list-style: none;
-	margin: 0 0 var(--nc-gap, 1rem);
+	margin: 0 0 var(--nc-kategorie-margin-bottom, var(--nc-gap, 1rem));
 	padding: 0;
 	display: grid;
-	gap: var(--nc-gap, 1rem);
+	gap: var(--nc-kategorie-gap, var(--nc-gap, 1rem));
 }
 
+/*
+ * Wiersz kategorii. Domyślnie kolumna z polem przed tekstem (jak dotąd);
+ * `--nc-kat-kierunek: row-reverse` stawia przełącznik z prawej strony tekstu.
+ */
 .nc-kategoria__etykieta {
 	display: flex;
-	align-items: center;
-	gap: .625rem;
-	min-height: 44px;
+	flex-direction: var(--nc-kat-kierunek, row);
+	align-items: var(--nc-kat-align, center);
+	gap: var(--nc-kat-gap, .625rem);
+	min-height: var(--nc-kat-min-h, 44px);
 	cursor: pointer;
 	font-weight: 600;
 }
 
+.nc-kategoria__tresc {
+	display: block;
+	min-width: 0;
+	flex: 1 1 auto;
+	order: var(--nc-kat-tresc-order, 2);
+}
+
+.nc-kategoria__nazwa {
+	display: block;
+	font-size: var(--nc-kat-nazwa-fs, inherit);
+	line-height: var(--nc-kat-nazwa-lh, inherit);
+	color: var(--nc-kat-nazwa-color, inherit);
+}
+
+/*
+ * Przełącznik: to jest natywny checkbox z wyłączonym wyglądem systemowym, nie makieta
+ * z <div>. Klawiatura, czytnik ekranu i formularz działają dalej same z siebie —
+ * odtworzenie tego na atrapie kosztuje pół dnia i i tak wychodzi gorzej.
+ * Domyślne wartości zostawiają zwykły kwadracik.
+ */
 .nc-kategoria__pole {
-	width: 1.25rem;
-	height: 1.25rem;
+	flex: 0 0 auto;
+	order: var(--nc-kat-pole-order, 1);
+	appearance: var(--nc-kat-pole-appearance, auto);
+	-webkit-appearance: var(--nc-kat-pole-appearance, auto);
+	position: relative;
+	margin: 0;
+	width: var(--nc-kat-pole-szer, 1.25rem);
+	height: var(--nc-kat-pole-wys, 1.25rem);
+	border: var(--nc-kat-pole-border, 0);
+	border-radius: var(--nc-kat-pole-radius, 0);
+	background: var(--nc-kat-pole-tlo, transparent);
+	transition: background-color var(--nc-dur, 200ms) var(--nc-ease, ease),
+		border-color var(--nc-dur, 200ms) var(--nc-ease, ease);
 	accent-color: var(--nc-primary, #16161f);
+}
+
+.nc-kategoria__pole::after {
+	content: var(--nc-kat-knob, none);
+	position: absolute;
+	top: var(--nc-kat-knob-top, 2px);
+	left: var(--nc-kat-knob-left, 2px);
+	width: var(--nc-kat-knob-rozmiar, 1rem);
+	height: var(--nc-kat-knob-rozmiar, 1rem);
+	border-radius: 9999px;
+	background: var(--nc-kat-knob-tlo, #fff);
+	box-shadow: var(--nc-kat-knob-cien, none);
+	transition: left var(--nc-dur, 200ms) var(--nc-ease, ease);
+}
+
+.nc-kategoria__pole:checked {
+	background: var(--nc-kat-pole-tlo-wl, var(--nc-kat-pole-tlo, transparent));
+	border-color: var(--nc-kat-pole-border-wl, currentColor);
+}
+
+.nc-kategoria__pole:checked::after {
+	left: var(--nc-kat-knob-left-wl, 2px);
 }
 
 .nc-kategoria__pole:disabled {
 	cursor: not-allowed;
+	opacity: var(--nc-kat-pole-wyl-krycie, 1);
 }
 
 .nc-kategoria__opis {
-	margin: .25rem 0 0 1.875rem;
-	font-size: var(--nc-fs-sm, .9375rem);
+	display: block;
+	margin: var(--nc-kat-opis-margin, .25rem 0 0 1.875rem);
+	font-size: var(--nc-kat-opis-fs, var(--nc-fs-sm, .9375rem));
+	line-height: var(--nc-kat-opis-lh, inherit);
+	font-weight: var(--nc-kat-opis-waga, 400);
 	color: var(--nc-muted, #55555f);
-	max-width: 60ch;
+	max-width: var(--nc-kat-opis-szer, 60ch);
 }
 
 /* Zastępnik osadzenia zewnętrznego (YouTube, mapa, odtwarzacz). */
