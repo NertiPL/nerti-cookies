@@ -8,6 +8,18 @@ Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podnies
 
 - **Ability wołana bez parametrów nie przechodziła walidacji.** Dotyczyło każdej ability wtyczki, a najbardziej tych, które z definicji nie biorą argumentów: `pobierz-ustawienia`, `wykryj-skrypty`, `statystyki-zgod`. Adapter MCP dowozi `parameters: {}` do `WP_Ability::execute()` jako **null**, nie jako pusty obiekt. `execute()` woła najpierw `normalize_input()` (podstawia `input_schema['default']`, gdy wejście jest nullem), a dopiero potem `validate_input()` — bez zadeklarowanego `default` null przechodzi normalizację nietknięty i `rest_validate_value_from_schema` odrzuca go komunikatem „input nie jest typu object". Agent widział błąd walidacji i najczęściej wnioskował, że ability nie istnieje. Zmierzone 2026-08-23 na WP 7.1. Poprawka w pętli rejestrującej, więc obejmuje też każdą ability dopisaną później.
 
+## 0.2.2 — 2026-08-23
+
+Wydane dopiero razem z 0.2.3 — wpis dopisany wstecz, żeby historia nie miała dziury.
+
+### Naprawione
+
+- **Baner nie znikał po kliknięciu „Akceptuj", a przy kolejnej wizycie wstawał mimo zapisanej decyzji.** Klasa `.nc-baner` ustawia `display: flex`, a wbudowana reguła przeglądarki dla `[hidden]` to zwykły selektor atrybutu — przegrywała na wadze. Wyglądało to na martwe przyciski i szukało się błędu w JS, który działał poprawnie. Jedna reguła `[hidden]` o wyższej wadze załatwia to naraz dla banera, panelu, przycisków i zastępnika osadzenia.
+
+### Zmienione
+
+- Rozwinięcie „Dostosuj ustawienia" zaznacza wszystkie kategorie. **Na wyraźne życzenie właściciela strony i niezgodnie z RODO** — zgoda musi być czynna (TSUE C-673/17). Blok jest opisany w kodzie i da się go wyciąć bez śladu.
+
 ## 0.2.1 — 2026-08-21
 
 ### Naprawione
