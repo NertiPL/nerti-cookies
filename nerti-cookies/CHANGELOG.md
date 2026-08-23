@@ -2,6 +2,12 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.2.3 — 2026-08-23
+
+### Naprawione
+
+- **Ability wołana bez parametrów nie przechodziła walidacji.** Dotyczyło każdej ability wtyczki, a najbardziej tych, które z definicji nie biorą argumentów: `pobierz-ustawienia`, `wykryj-skrypty`, `statystyki-zgod`. Adapter MCP dowozi `parameters: {}` do `WP_Ability::execute()` jako **null**, nie jako pusty obiekt. `execute()` woła najpierw `normalize_input()` (podstawia `input_schema['default']`, gdy wejście jest nullem), a dopiero potem `validate_input()` — bez zadeklarowanego `default` null przechodzi normalizację nietknięty i `rest_validate_value_from_schema` odrzuca go komunikatem „input nie jest typu object". Agent widział błąd walidacji i najczęściej wnioskował, że ability nie istnieje. Zmierzone 2026-08-23 na WP 7.1. Poprawka w pętli rejestrującej, więc obejmuje też każdą ability dopisaną później.
+
 ## 0.2.1 — 2026-08-21
 
 ### Naprawione

@@ -82,13 +82,28 @@ class Nerti_Cookies_Abilities {
 		}
 
 		foreach ( self::katalog() as $nazwa => $def ) {
+			/* `default` musi być, inaczej ability wołana bez parametrów nie przechodzi
+			   walidacji. Adapter MCP dowozi `parameters: {}` do WP_Ability::execute()
+			   jako NULL; execute() woła najpierw normalize_input() (który podstawia
+			   input_schema['default'], gdy wejście jest nullem), a dopiero potem
+			   validate_input(). Bez zadeklarowanego default null przechodzi
+			   normalizację nietknięty i rest_validate_value_from_schema odrzuca go
+			   jako „nie obiekt" — czyli `pobierz-ustawienia`, `wykryj-skrypty` i
+			   `statystyki-zgod`, które z definicji nie biorą argumentów, nie dawały
+			   się wywołać wcale. Zmierzone 2026-08-23 na WP 7.1,
+			   wp-includes/abilities-api/class-wp-ability.php. */
+			$wejscie = $def['wejscie'];
+			if ( ! array_key_exists( 'default', $wejscie ) ) {
+				$wejscie['default'] = array();
+			}
+
 			agent_connector_for_wp_register_ability(
 				'nerti-cookies/' . $nazwa,
 				array(
 					'label'            => $def['etykieta'],
 					'description'      => $def['opis'],
 					'category'         => self::KATEGORIA,
-					'input_schema'     => $def['wejscie'],
+					'input_schema'     => $wejscie,
 					'output_schema'    => $def['wyjscie'],
 					'annotations'      => $def['adnotacje'],
 					'execute_callback' => static function ( array $input ) use ( $def ) {

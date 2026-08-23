@@ -3,7 +3,7 @@
  * Plugin Name:       Nerti Cookies
  * Plugin URI:        https://github.com/NertiPL/nerti-cookies
  * Description:       Baner zgód, który blokuje skrypty PRZED zgodą, nie po niej. Kategorie, rejestr zgód z wersją polityki, odmowa tak samo łatwa jak zgoda na pierwszym ekranie, wygląd brany z design-system.json projektu albo z ustawień globalnych Oxygena.
- * Version:           0.2.2
+ * Version:           0.2.3
  * Requires at least: 6.4
  * Requires PHP:      7.4
  * Author:            Nerti
