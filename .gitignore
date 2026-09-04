@@ -4,3 +4,5 @@ node_modules/
 *.token
 Thumbs.db
 .DS_Store
+# paczki budowane skryptem
+*.zip
