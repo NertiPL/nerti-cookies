@@ -5,7 +5,7 @@ z wersją polityki, baner ubrany w tokeny projektu, sterowanie przez abilities M
 
 Wydzielona z repozytorium `webdev` 2026-08-08. Powód: to jest **produkt**, który trafia
 na serwer klienta i ma własny cykl wydań. Wiedza o tym, jak go wdrażać i jak testować,
-została w skillu `cookies-rodo` — kod nie powinien mieszkać w repozytorium z instrukcjami.
+została w skillu `cookie-consent` — kod nie powinien mieszkać w repozytorium z instrukcjami.
 
 ```
 nerti-cookies/
@@ -26,7 +26,7 @@ nerti-cookies/
 `node --check` na `baner.js`. Niesprawdzone: cokolwiek, co wymaga działającej instalacji.
 
 Zanim uznasz wtyczkę za gotową, wykonaj **test przez odmowę** — procedura w
-`C:\AI\webdev\plugins\nerti-web\skills\cookies-rodo\test-odmowy.md`. Klikasz „odrzuć"
+`C:\AI\webdev\plugins\nerti-web\skills\cookie-consent\test-odmowy.md`. Klikasz „odrzuć"
 i sprawdzasz w zakładce Sieć, czy naprawdę nic nie poszło. Zgoda, która nic nie blokuje,
 jest gorsza niż brak banera — bo wygląda na zgodność.
 
@@ -34,8 +34,8 @@ jest gorsza niż brak banera — bo wygląda na zgodność.
 
 | Czego szukasz | Gdzie |
 |---|---|
-| jak wdrożyć, jak testować | `webdev\plugins\nerti-web\skills\cookies-rodo\SKILL.md` |
-| inwentarz skryptów strony | `...\cookies-rodo\inwentarz.md` |
-| generowanie polityk z inwentarza | `...\cookies-rodo\polityki.md` |
-| abilities dla agent-connectora | `...\cookies-rodo\abilities.md` |
-| test przez odmowę | `...\cookies-rodo\test-odmowy.md` |
+| jak wdrożyć, jak testować | `webdev\plugins\nerti-web\skills\cookie-consent\SKILL.md` |
+| inwentarz skryptów strony | `...\cookie-consent\inwentarz.md` |
+| generowanie polityk z inwentarza | `...\cookie-consent\polityki.md` |
+| abilities dla agent-connectora | `...\cookie-consent\abilities.md` |
+| test przez odmowę | `...\cookie-consent\test-odmowy.md` |
