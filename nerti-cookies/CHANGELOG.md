@@ -2,6 +2,30 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.3.2 — 2026-09-15
+
+### Naprawione
+
+- **„Wybieram sam” był naraz linkiem i przyciskiem.** `.nc-btn--tekst` miał podkreślenie i jednocześnie dziedziczył obrys 1 px z `.nc-btn`, a po najechaniu dostawał rozjaśnienie `filter` przeznaczone dla przycisków z tłem. Teraz to przycisk tekstowy: obrys przezroczysty (wysokość bez zmian), podkreślenie 1 px w normal i 2 px po najechaniu oraz przy wciśnięciu, `filter: none`, przesunięcie 1 px w `:active`. Każdy stan wpisany jawnie (wp-oxygen build-standard §12a). Focus-visible bez zmian: obrys 3 px w `--nc-focus`. Zmierzone na try.local przez `front-kontrola.mjs`: 4 naruszenia na dwóch stronach demo przed poprawką.
+
+## 0.3.1 — 2026-09-14
+
+Wydane na try.local 14.09, zacommitowane 15.09 (`6496e13`). Pośrednie 0.3.0 nie ma osobnego commita i mieści się w tym wpisie.
+
+### Naprawione
+
+- **Blokada niezależna od cache strony.** HTML nie zależy już od ciasteczka odwiedzającego: Consent Mode startuje zawsze od `denied`, a opcjonalne skrypty uruchamia wyłącznie JS po odczycie bieżącej decyzji. Wcześniej strona z cache mogła podać wersję wygenerowaną dla kogoś, kto się zgodził.
+- **Parser znaczników przez `WP_HTML_Tag_Processor`** zamiast wyrażeń regularnych. Zachowuje `type="module"` (`data-nc-type`) po odblokowaniu i nie gubi atrybutów.
+- **Wycofanie zgody sprząta.** Kategorie mają listę `storage`; po wycofaniu kasowane są pasujące wpisy `localStorage` i `sessionStorage`, a gdy wycofana kategoria już działała, strona się przeładowuje. Ciasteczka są kasowane na każdym poziomie ścieżki, nie tylko `/` i bieżącej.
+- **REST waliduje wejście** schematem (400 zamiast cichego przyjęcia), `waznosc_dni` 1–365, błędy zapisu wracają jako `WP_Error`. Rejestr zgód niedostępny nie blokuje decyzji.
+- Rozpoznanie edytora zna parametry Oxygena 6 (`oxygen`, `oxygen_iframe`) i działa tylko dla zalogowanego z `edit_posts`. Wcześniej anonimowy gość mógł zdjąć baner, dopisując parametr budowniczego do adresu.
+
+### Zmienione
+
+- **Rozwinięcie „Wybieram sam” nie zaznacza już wszystkich kategorii.** Zgoda musi być czynna (TSUE C-673/17); zachowanie z 0.2.2 zostało usunięte. Fokus trafia na pierwszą kategorię, „Zapisz mój wybór” zastępuje przycisk rozwinięcia.
+- **Zamknięcie banera nie zmienia decyzji ani przełączników** i wraca fokusem tam, skąd baner otwarto.
+- Kategorie mogą być ukryte (`ukryta`), panel ma polskie sekcje, pole `administrator` w ustawieniach.
+
 ## 0.2.3 — 2026-08-23
 
 ### Naprawione
