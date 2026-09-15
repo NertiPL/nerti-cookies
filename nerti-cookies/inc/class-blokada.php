@@ -60,7 +60,10 @@ class Nerti_Cookies_Blokada {
 	 * @return bool
 	 */
 	public static function czy_edytor() {
+		if ( ! current_user_can( 'edit_posts' ) ) { return false; }
 		$znaczniki = array(
+			'oxygen',
+			'oxygen_iframe',
 			'breakdance',          // Oxygen 6 / Breakdance — panel budowniczego
 			'breakdance_iframe',   // Oxygen 6 / Breakdance — ramka z podglądem
 			'elementor-preview',
@@ -100,9 +103,8 @@ class Nerti_Cookies_Blokada {
 		echo "document.documentElement.setAttribute('data-nc',window.ncStan?'decyzja':'pytanie');\n";
 
 		if ( ! empty( $u['consent_mode'] ) ) {
-			$zgoda = self::zgoda_z_ciasteczka();
-			$an    = ( isset( $zgoda['analityczne'] ) && $zgoda['analityczne'] ) ? 'granted' : 'denied';
-			$mk    = ( isset( $zgoda['marketingowe'] ) && $zgoda['marketingowe'] ) ? 'granted' : 'denied';
+			$an = 'denied';
+			$mk = 'denied'; // HTML jest niezależny od cookies odwiedzającego (cache).
 			echo "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}\n";
 			echo "gtag('consent','default',{'ad_storage':'" . esc_js( $mk ) . "','ad_user_data':'" . esc_js( $mk ) . "','ad_personalization':'" . esc_js( $mk ) . "','analytics_storage':'" . esc_js( $an ) . "','functionality_storage':'granted','security_storage':'granted','wait_for_update':500});\n";
 		}
@@ -149,8 +151,7 @@ class Nerti_Cookies_Blokada {
 		if ( isset( $u['kategorie'][ $kategoria ]['wymagana'] ) && $u['kategorie'][ $kategoria ]['wymagana'] ) {
 			return true;
 		}
-		$zgoda = self::zgoda_z_ciasteczka();
-		return ! empty( $zgoda[ $kategoria ] );
+		return false; // Opcjonalne skrypty uruchamia wyłącznie JS po odczycie bieżącej decyzji.
 	}
 
 	/**
@@ -215,42 +216,21 @@ class Nerti_Cookies_Blokada {
 		$u         = Nerti_Cookies_Ustawienia::pobierz();
 		$oryginal  = $html;
 
-		$html = preg_replace_callback(
-			'#<script\b([^>]*)>(.*?)</script>#is',
-			function ( $m ) use ( $u ) {
-				$atrybuty = $m[1];
-				$tresc    = $m[2];
-
-				// Własnych skryptów nie ruszamy — inaczej baner zablokowałby sam siebie.
-				if ( false !== stripos( $atrybuty, 'nc-bootstrap' ) || false !== stripos( $atrybuty, 'nerti-cookies' ) ) {
-					return $m[0];
-				}
-				// Już zablokowany przez warstwę 1.
-				if ( false !== stripos( $atrybuty, 'data-nc-cat' ) ) {
-					return $m[0];
-				}
-				// Dane strukturalne i szablony to nie są skrypty wykonywalne.
-				if ( preg_match( '#type\s*=\s*["\'](application/ld\+json|text/template|text/html)["\']#i', $atrybuty ) ) {
-					return $m[0];
-				}
-
-				$kat = self::kategoria_dla_tekstu( $atrybuty . ' ' . $tresc, $u['wzorce'] );
-				if ( '' === $kat || self::dozwolona( $kat ) ) {
-					return $m[0];
-				}
-				return self::zablokuj_znacznik( $m[0], $kat );
-			},
-			$html
-		);
-
-		/*
-		 * `preg_replace_callback` zwraca null przy przekroczeniu limitu nawrotów — na długiej
-		 * stronie to jest realne. Cicha zamiana całej odpowiedzi na null wyświetliłaby klientowi
-		 * pustą stronę, więc przy błędzie wracamy do wersji sprzed przetwarzania.
-		 */
-		if ( ! is_string( $html ) ) {
-			return $oryginal;
+		$p = new WP_HTML_Tag_Processor($html);
+		while ($p->next_tag('SCRIPT')) {
+			$id = $p->get_attribute('id');
+			$src = $p->get_attribute('src');
+			$type = $p->get_attribute('type');
+			if (in_array($id,array('nc-bootstrap','nerti-cookies-js','nerti-cookies-js-extra'),true) || $p->get_attribute('data-nc-cat')) continue;
+			if ($type && !in_array(strtolower($type),array('module','text/javascript','application/javascript','application/ecmascript','text/ecmascript'),true)) continue;
+			$kat = self::kategoria_dla_tekstu((string)$src.' '.$p->get_modifiable_text(), $u['wzorce']);
+			if ('' === $kat || self::dozwolona($kat)) continue;
+			if (is_string($src)) { $p->set_attribute('data-nc-src',$src); $p->remove_attribute('src'); }
+			if (is_string($type)) $p->set_attribute('data-nc-type',$type);
+			$p->set_attribute('data-nc-cat',$kat);
+			$p->set_attribute('type','text/plain');
 		}
+		$html = $p->get_updated_html();
 		$po_skryptach = $html;
 
 		$osadzenia_cb = function ( $m ) use ( $u ) {
@@ -305,14 +285,15 @@ class Nerti_Cookies_Blokada {
 	 * @return string
 	 */
 	private static function zablokuj_znacznik( $tag, $kategoria ) {
-		$tag = preg_replace( '#\stype\s*=\s*(["\'])[^"\']*\1#i', '', $tag );
-		$tag = preg_replace( '#\ssrc\s*=\s*(["\'])([^"\']*)\1#i', ' data-nc-src=$1$2$1', $tag, 1 );
-		$tag = preg_replace(
-			'#<script\b#i',
-			'<script type="text/plain" data-nc-cat="' . esc_attr( $kategoria ) . '"',
-			$tag,
-			1
-		);
+		$p = new WP_HTML_Tag_Processor( $tag );
+		if ( ! $p->next_tag( 'SCRIPT' ) ) { return $tag; }
+		$src = $p->get_attribute( 'src' );
+		$typ = $p->get_attribute( 'type' );
+		if ( is_string( $src ) ) { $p->set_attribute( 'data-nc-src', $src ); $p->remove_attribute( 'src' ); }
+		if ( is_string( $typ ) ) { $p->set_attribute( 'data-nc-type', $typ ); }
+		$p->set_attribute( 'type', 'text/plain' );
+		$p->set_attribute( 'data-nc-cat', $kategoria );
+		$tag = $p->get_updated_html();
 		return $tag;
 	}
 
@@ -329,14 +310,10 @@ class Nerti_Cookies_Blokada {
 	 * @return string
 	 */
 	private static function zastepnik_osadzenia( $oryginal, $atrybuty, $kategoria, $teksty ) {
-		$src   = '';
-		$tytul = '';
-		if ( preg_match( '#\ssrc\s*=\s*(["\'])([^"\']*)\1#i', $atrybuty, $m ) ) {
-			$src = $m[2];
-		}
-		if ( preg_match( '#\stitle\s*=\s*(["\'])([^"\']*)\1#i', $atrybuty, $m ) ) {
-			$tytul = $m[2];
-		}
+		$p = new WP_HTML_Tag_Processor($oryginal);
+		if (!$p->next_tag('IFRAME')) return $oryginal;
+		$src = (string)$p->get_attribute('src');
+		$tytul = (string)$p->get_attribute('title');
 		if ( '' === $src ) {
 			// Osadzenie z adresem w `data-src` (leniwe ładowanie). Nie ruszamy go zastępnikiem,
 			// bo skasowalibyśmy element; zamiast tego zostawiamy i odnotowujemy w inwentarzu.

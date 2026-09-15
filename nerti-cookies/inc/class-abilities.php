@@ -101,7 +101,7 @@ class Nerti_Cookies_Abilities {
 				'nerti-cookies/' . $nazwa,
 				array(
 					'label'            => $def['etykieta'],
-					'description'      => $def['opis'],
+					'description'      => $def['opis'] . ' Uprawnienia MCP zapewnia Agent Connector; REST wymaga manage_options. Wejście określa input_schema. Wynik nie dowodzi ochrony sieciowej: sprawdź zapis → odczyt → przeglądarkę. Przed zapisem zachowaj pobierz-ustawienia; odwrócenie przez zapis poprzednich wartości. Nie cofaj wersji polityki w celu przywrócenia wygasłych zgód.',
 					'category'         => self::KATEGORIA,
 					'input_schema'     => $wejscie,
 					'output_schema'    => $def['wyjscie'],
@@ -124,8 +124,12 @@ class Nerti_Cookies_Abilities {
 				array(
 					'methods'             => 'POST',
 					'callback'            => function ( $req ) use ( $def ) {
-						$wynik = call_user_func( $def['wykonaj'], (array) $req->get_json_params() );
-						return new WP_REST_Response( $wynik, 200 );
+						$input = $req->get_json_params();
+						$input = null === $input ? array() : $input;
+						$valid = rest_validate_value_from_schema( $input, $def['wejscie'], 'input' );
+						if ( is_wp_error( $valid ) ) { $valid->add_data(array('status' => 400)); return $valid; }
+						$wynik = call_user_func( $def['wykonaj'], $input );
+						return is_wp_error( $wynik ) ? $wynik : rest_ensure_response( $wynik );
 					},
 					'permission_callback' => array( __CLASS__, 'moze' ),
 				)
@@ -160,7 +164,8 @@ class Nerti_Cookies_Abilities {
 						'teksty'        => array( 'type' => 'object' ),
 						'link_polityka' => array( 'type' => 'string' ),
 						'link_cookies'  => array( 'type' => 'string' ),
-						'waznosc_dni'   => array( 'type' => 'integer' ),
+						'administrator' => array( 'type' => 'string' ),
+						'waznosc_dni'   => array( 'type' => 'integer', 'minimum' => 1, 'maximum' => 365 ),
 						'kategorie'     => array( 'type' => 'object' ),
 						'wzorce'        => array( 'type' => 'object' ),
 						'osadzenia'     => array( 'type' => 'object' ),
@@ -313,7 +318,8 @@ class Nerti_Cookies_Abilities {
 		if ( empty( $nowe ) ) {
 			return array( 'ok' => false, 'blad' => 'Nie przekazano żadnego znanego pola.' );
 		}
-		return array( 'ok' => true, 'ustawienia' => Nerti_Cookies_Ustawienia::zapisz( $nowe ) );
+		$wynik = Nerti_Cookies_Ustawienia::zapisz( $nowe );
+		return is_wp_error( $wynik ) ? $wynik : array( 'ok' => true, 'ustawienia' => $wynik );
 	}
 
 	public static function op_tokeny( $args = array() ) {
@@ -341,7 +347,8 @@ class Nerti_Cookies_Abilities {
 
 	public static function op_wersja( $args = array() ) {
 		$wersja = isset( $args['wersja'] ) ? (string) $args['wersja'] : '';
-		return array( 'ok' => true, 'wersja_polityki' => Nerti_Cookies_Ustawienia::podnies_wersje_polityki( $wersja ) );
+		$wynik = Nerti_Cookies_Ustawienia::podnies_wersje_polityki( $wersja );
+		return is_wp_error($wynik) ? $wynik : array( 'ok' => true, 'wersja_polityki' => $wynik );
 	}
 
 	public static function op_statystyki( $args = array() ) {

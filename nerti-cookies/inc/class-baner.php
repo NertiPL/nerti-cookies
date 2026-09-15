@@ -118,10 +118,7 @@ class Nerti_Cookies_Baner {
 						</div>
 						<?php
 						/*
-						 * Zamknięcie ZAPISUJE decyzję zgodną z aktualnym stanem przełączników
-						 * (domyślnie: tylko niezbędne). Krzyżyk, który jedynie chowa baner bez
-						 * zapisu, oznaczałby ponowne pytanie przy następnej podstronie — albo,
-						 * gorzej, milczące potraktowanie zamknięcia jako zgody.
+						 * Zamknięcie nie zmienia decyzji ani przełączników.
 						 * Domyślnie schowany tokenem, żeby nie zmieniać wyglądu istniejących stron.
 						 */
 						?>

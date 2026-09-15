@@ -17,6 +17,8 @@
 
 	var baner = document.getElementById( 'nc-baner' );
 	var panelUstawien = document.getElementById( 'nc-ustawienia' );
+	var powrotFokusu = null;
+	var uruchomione = {};
 
 	/* ---------- ciasteczko decyzji ---------- */
 
@@ -30,6 +32,8 @@
 			if ( ! d || String( d.w ) !== String( K.wersja_polityki ) ) {
 				return null; // zgoda na starą wersję polityki nie jest zgodą na obecną
 			}
+			d.kat = d.kat || {};
+			K.kategorie.forEach( function (c) { d.kat[c.id] = c.wymagana || (!c.ukryta && d.kat[c.id] === true); } );
 			return d;
 		} catch ( e ) {
 			return null;
@@ -74,7 +78,8 @@
 		var obecne = document.cookie.split( ';' ).map( function ( c ) {
 			return c.split( '=' )[ 0 ].trim();
 		} );
-		var sciezki = [ '/', location.pathname ];
+		var sciezki = [ '/' ];
+		location.pathname.split('/').filter(Boolean).reduce(function(p,part){ p += '/' + part; sciezki.push(p,p+'/'); return p; }, '');
 
 		obecne.forEach( function ( nazwa ) {
 			var pasuje = wzorce.some( function ( w ) {
@@ -97,15 +102,27 @@
 
 	/* ---------- odblokowanie ---------- */
 
+	function kasujStorage( wzorce ) {
+		[ 'localStorage', 'sessionStorage' ].forEach(function(typ) {
+			try { var storage = window[typ]; Object.keys(storage).forEach(function(nazwa) {
+				if (wzorce.some(function(w) { return w.slice(-1) === '*' ? nazwa.indexOf(w.slice(0,-1)) === 0 : nazwa === w; })) storage.removeItem(nazwa);
+			}); } catch(e) { /* Storage może być niedostępny. */ }
+		});
+	}
+
 	function odblokuj( kat ) {
 		var znaczniki = document.querySelectorAll( 'script[type="text/plain"][data-nc-cat]' );
 		Array.prototype.forEach.call( znaczniki, function ( stary ) {
 			if ( ! kat[ stary.getAttribute( 'data-nc-cat' ) ] ) {
 				return;
 			}
+			uruchomione[stary.getAttribute('data-nc-cat')] = true;
 			var nowy = document.createElement( 'script' );
+			nowy.async = false;
+			var typ = stary.getAttribute('data-nc-type');
+			if (typ) nowy.type = typ;
 			Array.prototype.forEach.call( stary.attributes, function ( a ) {
-				if ( a.name === 'type' || a.name === 'data-nc-cat' || a.name === 'data-nc-src' ) {
+				if ( a.name === 'type' || a.name === 'data-nc-cat' || a.name === 'data-nc-src' || a.name === 'data-nc-type' ) {
 					return;
 				}
 				nowy.setAttribute( a.name, a.value );
@@ -135,6 +152,7 @@
 			return;
 		}
 		var ramka = document.createElement( 'iframe' );
+		uruchomione[el.getAttribute('data-nc-cat')] = true;
 		ramka.src = src;
 		// Przenosimy tylko atrybuty bezpieczne — nie wstrzykujemy surowego HTML-u z bufora.
 		[ 'width', 'height', 'title', 'allow', 'allowfullscreen', 'loading', 'style' ].forEach( function ( n ) {
@@ -162,14 +180,17 @@
 	}
 
 	function zastosuj( kat, akcja, zapisz ) {
-		var id = ( czytaj() || {} ).id || nowyId();
+		var poprzednia = czytaj() || {};
+		var id = poprzednia.id || nowyId();
+		var cofniecie = K.kategorie.some(function(c) { return !c.wymagana && !kat[c.id] && (uruchomione[c.id] || (poprzednia.kat || {})[c.id]); });
 
 		// Kasowanie idzie PRZED odblokowaniem: jeśli ktoś cofa zgodę, ciasteczka mają zniknąć,
 		// zanim cokolwiek zdąży je ustawić ponownie.
-		var doKasacji = [];
+		var doKasacji = [], storageDoKasacji = [];
 		K.kategorie.forEach( function ( c ) {
 			if ( ! c.wymagana && ! kat[ c.id ] ) {
 				doKasacji = doKasacji.concat( c.ciasteczka || [] );
+				storageDoKasacji = storageDoKasacji.concat(c.storage || []);
 			}
 		} );
 		if ( doKasacji.length ) {
@@ -181,12 +202,15 @@
 			loguj( id, akcja, kat );
 		}
 
+		kasujStorage(storageDoKasacji);
 		consentMode( kat );
+		if (cofniecie && zapisz !== false) { location.reload(); return; }
 		odblokuj( kat );
 
 		document.documentElement.setAttribute( 'data-nc', 'decyzja' );
 		if ( baner ) {
 			baner.hidden = true;
+			if (powrotFokusu && powrotFokusu.isConnected) powrotFokusu.focus();
 		}
 		document.dispatchEvent( new CustomEvent( 'nc:zgoda', { detail: { kategorie: kat, akcja: akcja } } ) );
 	}
@@ -201,7 +225,7 @@
 				headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': K.nonce },
 				keepalive: true,
 				body: JSON.stringify( { zgoda_id: id, akcja: akcja, kategorie: kat, adres: location.href } )
-			} );
+			} ).catch(function() { /* Decyzja działa także bez rejestru. */ });
 		} catch ( e ) {
 			// Brak wpisu w rejestrze nie może zablokować decyzji użytkownika.
 		}
@@ -212,7 +236,7 @@
 	function zestaw( wszystkie ) {
 		var k = {};
 		K.kategorie.forEach( function ( c ) {
-			k[ c.id ] = c.wymagana ? true : !! wszystkie;
+			k[ c.id ] = c.wymagana ? true : !c.ukryta && !! wszystkie;
 		} );
 		return k;
 	}
@@ -237,6 +261,7 @@
 		if ( ! baner ) {
 			return;
 		}
+		powrotFokusu = document.activeElement;
 		baner.hidden = false;
 		var pierwszy = baner.querySelector( '[data-nc-akcja]' );
 		if ( pierwszy ) {
@@ -258,6 +283,7 @@
 			return;
 		}
 
+		e.preventDefault();
 		var akcja = cel.getAttribute( 'data-nc-akcja' );
 
 		if ( 'akceptuj' === akcja ) {
@@ -265,26 +291,13 @@
 		} else if ( 'odrzuc' === akcja ) {
 			zastosuj( zestaw( false ), 'odrzuc' );
 		} else if ( 'zamknij' === akcja ) {
-			/* Zamknięcie to decyzja, nie ucieczka od niej: zapisujemy stan przełączników. */
-			zastosuj( zWyboru(), 'wybor' );
+			baner.hidden = true;
+			if (powrotFokusu && powrotFokusu.isConnected) powrotFokusu.focus();
 		} else if ( 'zapisz' === akcja ) {
 			zastosuj( zWyboru(), 'wybor' );
 		} else if ( 'pokaz-ustawienia' === akcja ) {
 			if ( panelUstawien ) {
 				var otwarty = ! panelUstawien.hidden;
-				if ( ! otwarty ) {
-					/*
-					 * Rozwinięcie panelu zaznacza wszystkie kategorie.
-					 * UWAGA PRAWNA: RODO wymaga zgody czynnej, więc domyślnie zaznaczone
-					 * przełączniki nie są ważną zgodą (TSUE, Planet49, C-673/17). Zostało
-					 * tak na wyraźne życzenie właściciela strony. Cofnięcie to skasowanie
-					 * tego bloku — reszta mechanizmu tego nie zauważy.
-					 */
-					Array.prototype.forEach.call(
-						panelUstawien.querySelectorAll( '.nc-kategoria__pole' ),
-						function ( p ) { p.checked = true; }
-					);
-				}
 				panelUstawien.hidden = otwarty;
 				cel.setAttribute( 'aria-expanded', otwarty ? 'false' : 'true' );
 				/* Po rozwinięciu „Dostosuj" nie ma już czego robić — jego miejsce zajmuje
@@ -293,6 +306,8 @@
 				cel.hidden = ! otwarty;
 				var zapisz = baner.querySelector( '[data-nc-akcja="zapisz"]' );
 				if ( zapisz ) { zapisz.hidden = otwarty; }
+				var pole = panelUstawien.querySelector('.nc-kategoria__pole:not(:disabled)');
+				if (!otwarty && pole) pole.focus();
 			}
 		} else if ( 'otworz' === akcja ) {
 			var stan = czytaj();
@@ -302,6 +317,8 @@
 					p.checked = !! ( stan.kat && stan.kat[ p.value ] ) || p.disabled;
 				} );
 				panelUstawien.hidden = false;
+				baner.querySelector('[data-nc-akcja="zapisz"]').hidden = false;
+				baner.querySelector('[data-nc-akcja="pokaz-ustawienia"]').hidden = true;
 			}
 			pokaz();
 		}
@@ -314,6 +331,7 @@
 		// Decyzja już jest: stosujemy ją bez ponownego zapisu do rejestru.
 		zastosuj( stanStartowy.kat, 'istniejaca', false );
 	} else {
+		zastosuj(zestaw(false), 'brak', false);
 		pokaz();
 	}
 } )();

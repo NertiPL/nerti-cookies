@@ -164,7 +164,13 @@ class Nerti_Cookies_Ustawienia {
 		}
 		$zapisane   = get_option( self::OPCJA, array() );
 		$zapisane   = is_array( $zapisane ) ? $zapisane : array();
-		self::$bufor = array_replace_recursive( self::domyslne(), $zapisane );
+		self::$bufor = self::scal( self::domyslne(), $zapisane );
+		self::$bufor['wersja_banera'] = NERTI_COOKIES_WERSJA;
+		foreach (self::$bufor['kategorie'] as $id => &$kat) {
+			$kat['wymagana'] = 'niezbedne' === $id;
+			$kat['domyslnie'] = $kat['wymagana'];
+		}
+		unset($kat);
 		return self::$bufor;
 	}
 
@@ -185,12 +191,48 @@ class Nerti_Cookies_Ustawienia {
 	 * @param array $nowe Fragment konfiguracji.
 	 * @return array Stan po zapisie.
 	 */
+	public static function scal( array $baza, array $nowe ) {
+		foreach ( $nowe as $k => $v ) {
+			$baza[$k] = is_array($v) && $v && !is_numeric(key($v)) && isset($baza[$k]) && is_array($baza[$k]) ? self::scal($baza[$k], $v) : $v;
+		}
+		return $baza;
+	}
+
 	public static function zapisz( array $nowe ) {
+		// Jedna walidacja dla panelu, REST i MCP; null nie oznacza pominięcia pola.
+		foreach ($nowe as $k => $v) {
+			if (null === $v) return new WP_Error('nc_config', 'Pole '.$k.' nie może być null.', array('status'=>400));
+		}
+		foreach (array('wersja_polityki','link_polityka','link_cookies','administrator') as $k) {
+			if (isset($nowe[$k]) && !is_string($nowe[$k])) return new WP_Error('nc_config', 'Pole '.$k.' musi być tekstem.', array('status'=>400));
+		}
+		foreach (array('teksty','kategorie','wzorce','osadzenia','uchwyty','wyglad') as $k) {
+			if (isset($nowe[$k]) && !is_array($nowe[$k])) return new WP_Error('nc_config', 'Pole '.$k.' musi być obiektem.', array('status'=>400));
+		}
+		if (isset($nowe['waznosc_dni']) && (!is_int($nowe['waznosc_dni']) || $nowe['waznosc_dni'] < 1 || $nowe['waznosc_dni'] > 365)) return new WP_Error('nc_config','Ważność: liczba dni 1–365.',array('status'=>400));
+		foreach (($nowe['kategorie'] ?? array()) as $id=>$kat) {
+			if (!in_array($id,array('niezbedne','analityczne','marketingowe'),true) || !is_array($kat)) return new WP_Error('nc_category','Nieznana kategoria.',array('status'=>400));
+			foreach ($kat as $pole=>$v) {
+				if (null === $v || (in_array($pole,array('nazwa','opis'),true) && !is_string($v)) || (in_array($pole,array('wymagana','domyslnie','ukryta'),true) && !is_bool($v))) return new WP_Error('nc_category','Nieprawidłowa wartość kategorii.',array('status'=>400));
+			}
+			foreach (array('ciasteczka','storage') as $pole) {
+				if (isset($kat[$pole]) && (!is_array($kat[$pole]) || count(array_filter($kat[$pole], 'is_string')) !== count($kat[$pole]))) return new WP_Error('nc_category','Wzorce muszą być listą tekstów.',array('status'=>400));
+			}
+			if ($id !== 'niezbedne' && (!empty($kat['wymagana']) || !empty($kat['domyslnie']))) return new WP_Error('nc_consent','Kategorie opcjonalne wymagają aktywnego wyboru.',array('status'=>400));
+		}
+		foreach (array('wzorce','osadzenia','uchwyty') as $mapa) foreach (($nowe[$mapa] ?? array()) as $w=>$kat) {
+			if ('' === (string)$w || !in_array($kat,array('niezbedne','analityczne','marketingowe'),true)) return new WP_Error('nc_pattern','Nieprawidłowy wzorzec lub kategoria.',array('status'=>400));
+		}
+		foreach (array('consent_mode','bufor_wyjscia') as $k) if (isset($nowe[$k]) && !is_bool($nowe[$k])) return new WP_Error('nc_config','Przełącznik musi być bool.',array('status'=>400));
+		foreach (($nowe['teksty'] ?? array()) as $v) if (!is_string($v)) return new WP_Error('nc_config','Teksty muszą być ciągami znaków.',array('status'=>400));
 		$biezace = get_option( self::OPCJA, array() );
 		$biezace = is_array( $biezace ) ? $biezace : array();
-		$scalone = array_replace_recursive( $biezace, $nowe );
+		$scalone = self::scal( $biezace, $nowe );
 		$scalone = self::pilnuj_odmowy( $scalone );
+		$scalone['kategorie']['niezbedne']['wymagana'] = true;
+		$scalone['kategorie']['niezbedne']['domyslnie'] = true;
 		update_option( self::OPCJA, $scalone, false );
+		if (get_option(self::OPCJA) !== $scalone) return new WP_Error('nc_write','Nie potwierdzono zapisu konfiguracji.',array('status'=>500));
 		self::$bufor = null;
 		return self::pobierz();
 	}
@@ -251,8 +293,8 @@ class Nerti_Cookies_Ustawienia {
 			$czesci[] = (string) ( $ostatni + 1 );
 			$wersja  = implode( '.', $czesci );
 		}
-		self::zapisz( array( 'wersja_polityki' => sanitize_text_field( $wersja ) ) );
-		return $wersja;
+		$wynik = self::zapisz( array( 'wersja_polityki' => sanitize_text_field( $wersja ) ) );
+		return is_wp_error($wynik) ? $wynik : $wynik['wersja_polityki'];
 	}
 
 	/**
@@ -273,11 +315,11 @@ class Nerti_Cookies_Ustawienia {
 			 * i blokada są już na miejscu, a do tego czasu te skrypty pozostają
 			 * zablokowane, bo zgoda nigdy nie zostaje udzielona.
 			 */
-			if ( ! empty( $kat['ukryta'] ) ) {
-				continue;
-			}
+			
 			$k[] = array(
 				'id'         => $id,
+				'ukryta'     => !empty($kat['ukryta']),
+				'storage'    => array_values((array)($kat['storage'] ?? array())),
 				'nazwa'      => $kat['nazwa'],
 				'opis'       => $kat['opis'],
 				'wymagana'   => (bool) $kat['wymagana'],
@@ -302,11 +344,13 @@ class Nerti_Cookies_Ustawienia {
 	/** Zakładki ekranu, w kolejności wyświetlania. */
 	public static function zakladki() {
 		return array(
-			'stan'      => 'Stan',
+			'stan'      => 'Stan ochrony',
 			'wyglad'    => 'Wygląd',
 			'teksty'    => 'Teksty',
 			'kategorie' => 'Kategorie i skrypty',
-			'rejestr'   => 'Rejestr zgód',
+			'dokumenty' => 'Dokumenty',
+			'testy' => 'Inwentarz i testy',
+			'rejestr'   => 'Historia zgód',
 		);
 	}
 
@@ -443,6 +487,7 @@ class Nerti_Cookies_Ustawienia {
 					</form>
 
 					<?php self::sekcja_rejestr( $zgody, $akcja ); ?>
+					<?php self::sekcja_dokumenty_testy( $u ); ?>
 				</div>
 
 				<?php self::podglad(); ?>
@@ -456,6 +501,23 @@ class Nerti_Cookies_Ustawienia {
 	 * i tymi samymi zmiennymi — inaczej podgląd zacząłby żyć własnym życiem i
 	 * pokazywałby baner, którego na stronie nie ma.
 	 */
+	private static function sekcja_dokumenty_testy(array $u) {
+		$inw = Nerti_Cookies_Abilities::op_inwentarz(); ?>
+		<section id="nc-dokumenty" class="nc-sekcja" data-nc-panel="dokumenty">
+		<h2>Dokumenty</h2><p>Politykę przygotuj na podstawie rzeczywistych narzędzi, hostingu, formularzy i odbiorców danych. Brak faktów nie oznacza braku przetwarzania.</p>
+		<ul><li>Administrator: <?php echo empty($u['administrator']) ? 'DO UZUPEŁNIENIA' : esc_html($u['administrator']); ?></li>
+		<li>Polityka prywatności: <?php echo empty($u['link_polityka']) ? 'BRAK ADRESU' : esc_html($u['link_polityka']); ?></li>
+		<li>Hosting, czas przechowywania i odbiorcy: potwierdź z właścicielem.</li></ul>
+		<p>Adres dokumentu ustaw w zakładce Stan ochrony. Po zmianie treści podnieś wersję w Historii zgód. Wtyczka nie orzeka o zgodności prawnej.</p></section>
+		<section id="nc-testy" class="nc-sekcja" data-nc-panel="testy"><h2>Inwentarz i testy</h2>
+		<p>Rejestr WP z tego żądania jest niepełny: nie dowodzi, co pobiera przeglądarka na konkretnej stronie. Poniżej zarejestrowane skrypty, nie lista odbiorców danych.</p>
+		<details><summary>Odczyt rejestru WordPressa</summary><pre><?php echo esc_html(wp_json_encode($inw, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre></details>
+		<ol><li>Nowa sesja: przed decyzją zero opcjonalnych żądań i zapisów.</li><li>Odrzuć, odśwież: nadal zero.</li><li>Wybierz jedną kategorię: druga pozostaje zablokowana.</li><li>Zaakceptuj i wróć: respektuj zapisaną decyzję.</li><li>Wycofaj: przeładowanie i usunięcie skonfigurowanych cookies oraz localStorage/sessionStorage.</li><li>Zmień wersję polityki: zapytaj ponownie.</li></ol>
+		<p><strong>Te kroki to plan, nie wykonany test.</strong> Zachowaj datę, URL, wersję wtyczki, żądania sieciowe i stan pamięci dla każdego scenariusza. Nie testuj na prawdziwych odbiorcach bez zgody.</p>
+		<p>Skrypty wstrzyknięte później przez obcy JS, piksele obrazkowe, HttpOnly i obce domeny wymagają konfiguracji u źródła; skrypt banera nie może ich dowolnie kasować.</p></section>
+		<?php
+	}
+
 	private static function podglad() {
 		?>
 		<aside class="nc-uklad__podglad">
@@ -477,7 +539,8 @@ class Nerti_Cookies_Ustawienia {
 	private static function sekcja_stan( array $u, array $zgody, array $zrodlo ) {
 		?>
 		<section id="nc-stan" class="nc-sekcja" data-nc-panel="stan">
-			<h2>Stan</h2>
+			<h2>Stan ochrony</h2>
+			<p>Włączona blokada nie jest wynikiem testu. Przejdź kolejno: inwentarz → kategorie → wygląd i teksty → dokumenty → test odmowy.</p>
 			<table class="widefat striped nc-tabela">
 				<tbody>
 				<tr><td>Wersja polityki</td><td><code><?php echo esc_html( $u['wersja_polityki'] ); ?></code></td></tr>
@@ -809,7 +872,8 @@ class Nerti_Cookies_Ustawienia {
 				$nowe['wyglad'] = $wyglad;
 			}
 
-			self::zapisz( $nowe );
+			$zapis = self::zapisz( $nowe );
+			if (is_wp_error($zapis)) wp_die(esc_html($zapis->get_error_message()));
 		}
 
 		wp_safe_redirect(
