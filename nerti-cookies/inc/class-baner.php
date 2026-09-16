@@ -13,6 +13,7 @@ class Nerti_Cookies_Baner {
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'zasoby' ) );
 		add_action( 'wp_footer', array( __CLASS__, 'render' ), 5 );
 		add_shortcode( 'nerti_cookies_ustawienia', array( __CLASS__, 'shortcode' ) );
+		add_action( 'wp_footer', array( __CLASS__, 'wycofanie' ), 6 );
 	}
 
 	public static function zasoby() {
@@ -198,10 +199,31 @@ class Nerti_Cookies_Baner {
 	}
 
 	/**
+	 * Wejście do zmiany zgody drukowane przez wtyczkę, na końcu każdej podstrony.
+	 *
+	 * Domyślne, bo baner bez wyjścia jest defektem prawnym, a nie brakiem wygody:
+	 * zgodę trzeba dać się wycofać tak samo łatwo, jak się jej udzieliło. Projekt,
+	 * który ma własne wejście (element z data-nc-akcja="otworz"), wyłącza to
+	 * ustawieniem 'wycofanie' => 'strona' — wtedy wtyczka nie dokłada nic i nie
+	 * zmienia wysokości strony, którą zmierzył design.
+	 */
+	public static function wycofanie() {
+		if ( ! Nerti_Cookies_Blokada::czy_dziala() ) {
+			return;
+		}
+		if ( 'strona' === Nerti_Cookies_Ustawienia::pole( 'wycofanie', 'wtyczka' ) ) {
+			return;
+		}
+		echo '<div class="nc-wycofaj-pas">' . self::shortcode( array( 'klasa' => 'nc-wycofaj' ) ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput
+	}
+
+	/**
 	 * Wycofanie zgody. Musi być osiągalne z każdej podstrony — bez tego zgody nie da się
 	 * wycofać „tak samo łatwo, jak się jej udzieliło", a to jest wymóg, nie udogodnienie.
 	 *
-	 * Użycie: `[nerti_cookies_ustawienia]` w stopce albo w polityce cookies.
+	 * Użycie: `[nerti_cookies_ustawienia]` w stopce albo w polityce cookies, a na
+	 * builderach omijających the_content (Oxygen, Breakdance) — dowolny własny
+	 * element z atrybutem `data-nc-akcja="otworz"`.
 	 *
 	 * @param array $atrybuty Atrybuty shortcode'a.
 	 * @return string

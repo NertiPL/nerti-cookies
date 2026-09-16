@@ -308,7 +308,7 @@ class Nerti_Cookies_Abilities {
 	}
 
 	public static function op_zapisz( $args = array() ) {
-		$dozwolone = array( 'teksty', 'link_polityka', 'link_cookies', 'waznosc_dni', 'kategorie', 'wzorce', 'osadzenia', 'uchwyty', 'bufor_wyjscia', 'consent_mode', 'wyglad', 'administrator' );
+		$dozwolone = array( 'teksty', 'link_polityka', 'link_cookies', 'waznosc_dni', 'kategorie', 'wzorce', 'osadzenia', 'uchwyty', 'bufor_wyjscia', 'consent_mode', 'wyglad', 'administrator', 'wycofanie' );
 		$nowe      = array();
 		foreach ( $dozwolone as $klucz ) {
 			if ( array_key_exists( $klucz, (array) $args ) ) {

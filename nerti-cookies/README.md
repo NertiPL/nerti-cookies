@@ -38,12 +38,19 @@ Baner renderuje wtyczka, nie Oxygen — musi pokazać się przed zgodą, na każ
 
 | Zakładka | Co w niej jest |
 |---|---|
-| Stan | wersja polityki, liczba decyzji i odmów, źródło tokenów, stan blokady |
+| Stan | wersja polityki, liczba decyzji i odmów, źródło tokenów, stan blokady, **kto wystawia wejście do wycofania zgody** |
 | Wygląd | pozycja, szerokość i wielkość tekstu — **osobno dla telefonu i desktopu** — plus import tokenów i podgląd na żywo |
 | Teksty | każdy napis w banerze, z opisem gdzie się pokazuje |
 | Kategorie i skrypty | trzy kategorie, przypisane ciasteczka, mapa uchwytów i wzorców |
 | Rejestr zgód | eksport CSV i podniesienie wersji polityki |
 
+### Wycofanie zgody
+
+Zgodę trzeba dać się wycofać tak samo łatwo, jak się jej udzieliło — to wymóg, nie udogodnienie. Dlatego wtyczka **domyślnie sama** kończy każdą podstronę pasem z przyciskiem zmiany zgody i nikt nie musi o tym pamiętać. Pas jest zwykłym elementem na końcu strony, nie pływającym kółkiem: wymóg mówi o dostępności wycofania, nie o zasłanianiu treści.
+
+Jeżeli wejście jest już w projekcie strony — dowolny element z atrybutem `data-nc-akcja="otworz"` — przestaw Stan → *Wycofanie zgody* na „wejście jest w projekcie strony”. Wtyczka nie dokłada wtedy nic, a przeniesienie z designu zostaje 1:1. Przestawiaj to dopiero wtedy, gdy takie wejście na stronie naprawdę jest.
+
+Na Oxygenie i Breakdanie skrót `[nerti_cookies_ustawienia]` w treści strony **się nie wykona** — builder omija `the_content`. Tam używa się atrybutu.
 Podniesienie wersji polityki **unieważnia wszystkie dotychczasowe zgody** i pokazuje baner od nowa. To osobna operacja, a nie efekt uboczny zapisu ustawień: zmiana treści polityki bez odpytania ludzi na nowo znaczy, że rejestr dowodzi zgody na dokument, którego oni nie widzieli.
 
 ## Sterowanie przez MCP

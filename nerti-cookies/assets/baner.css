@@ -393,6 +393,19 @@
 }
 
 /*
+ * Pas z wejściem wtyczki: ostatni element strony, w kolorach strony, wyrównany do jej
+ * marginesu. Nie jest przyklejony do ekranu — pływające kółko na każdej podstronie to
+ * cudzy element w cudzym projekcie, a wymóg mówi o dostępności wycofania, nie o tym,
+ * żeby stale zasłaniało treść.
+ */
+.nc-wycofaj-pas {
+	padding: .5rem var(--nc-pas-margines, 1.25rem);
+	background: var(--nc-pas-tlo, transparent);
+	color: var(--nc-pas-tekst, inherit);
+	font-size: var(--nc-fs-sm, .9375rem);
+	text-align: var(--nc-pas-wyrownanie, start);
+}
+/*
  * Jedyny breakpoint banera: 48rem. Ta sama liczba stoi w
  * Nerti_Cookies_Tokeny::BREAKPOINT — zmiana tylko tutaj rozjedzie układ ze
  * zmiennymi, które PHP wypuszcza wokół tego samego progu.

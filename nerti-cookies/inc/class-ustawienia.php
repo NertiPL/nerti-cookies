@@ -43,6 +43,16 @@ class Nerti_Cookies_Ustawienia {
 			'administrator'    => '',
 
 			/*
+			 * Kto wystawia wejście do wycofania zgody. Wycofanie musi być osiągalne z każdej
+			 * podstrony — to wymóg, nie udogodnienie — więc domyślnie robi to wtyczka i nikt
+			 * nie musi o tym pamiętać. 'strona' oddaje je projektowi: wejściem jest wtedy
+			 * element strony z atrybutem data-nc-akcja="otworz", a wtyczka nie dokłada
+			 * własnego, żeby nie psuć układu. Na Oxygenie to jedyna droga w treści strony,
+			 * bo builder omija the_content i skrót [nerti_cookies_ustawienia] się nie wykona.
+			 */
+			'wycofanie'        => 'wtyczka',
+
+			/*
 			 * Wygląd ustawiany osobno dla telefonu i dla desktopu.
 			 *
 			 * Jeden breakpoint, 48rem (768px przy domyślnym kroku przeglądarki), ten sam
@@ -224,6 +234,7 @@ class Nerti_Cookies_Ustawienia {
 			if ('' === (string)$w || !in_array($kat,array('niezbedne','analityczne','marketingowe'),true)) return new WP_Error('nc_pattern','Nieprawidłowy wzorzec lub kategoria.',array('status'=>400));
 		}
 		foreach (array('consent_mode','bufor_wyjscia') as $k) if (isset($nowe[$k]) && !is_bool($nowe[$k])) return new WP_Error('nc_config','Przełącznik musi być bool.',array('status'=>400));
+		if (isset($nowe['wycofanie']) && !in_array($nowe['wycofanie'], array('wtyczka','strona'), true)) return new WP_Error('nc_config','Wycofanie: wtyczka albo strona.',array('status'=>400));
 		foreach (($nowe['teksty'] ?? array()) as $v) if (!is_string($v)) return new WP_Error('nc_config','Teksty muszą być ciągami znaków.',array('status'=>400));
 		$biezace = get_option( self::OPCJA, array() );
 		$biezace = is_array( $biezace ) ? $biezace : array();
@@ -423,7 +434,7 @@ class Nerti_Cookies_Ustawienia {
 			'zamknij'       => array( 'Opis krzyżyka', 'Czyta go czytnik ekranu; sam krzyżyk pokazuje się tylko wtedy, gdy projekt go włączy. Zamknięcie zapisuje decyzję zgodną z przełącznikami, nie omija jej.', false ),
 			'polityka'      => array( 'Podpis linku do polityki prywatności', 'Widoczny w banerze tylko wtedy, gdy adres polityki jest uzupełniony w zakładce Stan.', false ),
 			'cookies'       => array( 'Podpis linku do polityki cookies', 'Jak wyżej — pokazuje się tylko przy uzupełnionym adresie.', false ),
-			'wycofaj'       => array( 'Link wycofania zgody', 'Tekst przycisku ze skrótu [nerti_cookies_ustawienia], zwykle w stopce.', false ),
+			'wycofaj'       => array( 'Link wycofania zgody', 'Tekst wejścia do zmiany zgody: przycisku wtyczki, skrótu [nerti_cookies_ustawienia] i elementu z data-nc-akcja="otworz".', false ),
 			'osadzenie'     => array( 'Zastępnik zablokowanego materiału', 'Pokazuje się w miejscu filmu z YouTube albo mapy, dopóki nie ma zgody marketingowej.', true ),
 			'osadzenie_btn' => array( 'Przycisk pod zastępnikiem', 'Klikniecie odblokowuje ten jeden materiał.', false ),
 		);
@@ -573,6 +584,12 @@ class Nerti_Cookies_Ustawienia {
 					<th><label for="nc-waznosc">Ważność decyzji (dni)</label></th>
 					<td><input id="nc-waznosc" type="number" min="1" max="365" name="waznosc_dni" value="<?php echo esc_attr( (string) $u['waznosc_dni'] ); ?>">
 					<p class="description">Po tym czasie pytamy ponownie. Powyżej roku zgoda przestaje być odświeżana i to jest problem, nie oszczędność.</p></td>
+				</tr>
+				<tr>
+					<th>Wycofanie zgody</th>
+					<td><label><input type="radio" name="wycofanie" value="wtyczka" <?php checked( 'strona' !== $u['wycofanie'] ); ?>> wtyczka dokłada wejście na dole każdej podstrony</label><br>
+					<label><input type="radio" name="wycofanie" value="strona" <?php checked( 'strona' === $u['wycofanie'] ); ?>> wejście jest w projekcie strony (element z <code>data-nc-akcja="otworz"</code>)</label>
+					<p class="description">Zgodę trzeba dać się wycofać tak samo łatwo, jak się jej udzieliło. Drugą opcję wybierz dopiero wtedy, gdy takie wejście na stronie NAPRAWDĘ jest — inaczej zostaje baner bez wyjścia.</p></td>
 				</tr>
 				<tr>
 					<th>Blokada przez bufor wyjścia</th>
@@ -818,6 +835,7 @@ class Nerti_Cookies_Ustawienia {
 				'link_cookies'  => isset( $_POST['link_cookies'] ) ? esc_url_raw( wp_unslash( $_POST['link_cookies'] ) ) : '',
 				'waznosc_dni'   => isset( $_POST['waznosc_dni'] ) ? max( 1, min( 365, (int) $_POST['waznosc_dni'] ) ) : 182,
 				'bufor_wyjscia' => isset( $_POST['bufor_wyjscia'] ),
+				'wycofanie'     => isset( $_POST['wycofanie'] ) && 'strona' === $_POST['wycofanie'] ? 'strona' : 'wtyczka',
 			);
 
 			// Teksty: przez sanitize_text_field, bo trafiają do znacznika banera.

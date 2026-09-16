@@ -2,6 +2,16 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.4.0 — 2026-09-16
+
+### Dodane
+
+- **Wejście do wycofania zgody drukuje wtyczka, domyślnie.** Dotąd istniało tylko wtedy, gdy ktoś pamiętał o skrócie `[nerti_cookies_ustawienia]`; zapomniany skrót zostawiał baner bez wyjścia, czyli defekt prawny (zgodę trzeba dać się wycofać tak samo łatwo, jak się jej udzieliło). Teraz `wp_footer` zawsze kończy stronę pasem `.nc-wycofaj-pas` z tym samym przyciskiem. Bez pozycji `fixed`: pływające kółko na każdej podstronie to cudzy element w cudzym projekcie, a wymóg mówi o dostępności wycofania, nie o zasłanianiu treści.
+- **Ustawienie `wycofanie`** (zakładka Stan, dwa pola): `wtyczka` (domyślne, jak wyżej) albo `strona` — wejście jest elementem projektu z atrybutem `data-nc-akcja="otworz"`, a wtyczka nie dokłada własnego. Druga opcja jest po to, żeby przeniesienie 1:1 z designu nie miało doklejonego bloku, którego projektant nie narysował: na demie „Po godzinach” pas wtyczki dokładał 70 px do każdej podstrony. Ustawienie przechodzi przez `zapisz-ustawienia` (MCP, REST, panel) z walidacją na dwie dozwolone wartości.
+
+### Zmienione
+
+- Skrót działa jak dotąd, ale dokumentacja mówi wprost, że na builderach omijających `the_content` (Oxygen, Breakdance) jedyną drogą w treści strony jest własny element z `data-nc-akcja="otworz"` — skrót się tam nie wykona.
 ## 0.3.2 — 2026-09-15
 
 ### Naprawione
