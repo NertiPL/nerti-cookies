@@ -2,6 +2,11 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.4.1 — 2026-09-16
+
+### Dodane
+
+- **`testy/sprawdz-wycofanie.php`**: domyślne `wycofanie = wtyczka`, walidacja odrzuca obce wartości, przy `strona` wtyczka nie drukuje nic, przy `wtyczka` pas `.nc-wycofaj-pas` z przyciskiem `data-nc-akcja="otworz"` i tekstem z ustawień. Bez zmian w kodzie produkcyjnym.
 ## 0.4.0 — 2026-09-16
 
 ### Dodane

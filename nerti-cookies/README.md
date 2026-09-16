@@ -79,6 +79,7 @@ Bez frameworka, uruchamiane przez WP-CLI:
 ```bash
 wp eval-file wp-content/plugins/nerti-cookies/testy/sprawdz-dokumenty.php
 wp eval-file wp-content/plugins/nerti-cookies/testy/sprawdz-oxygena.php
+wp eval-file wp-content/plugins/nerti-cookies/testy/sprawdz-wycofanie.php
 ```
 
 ## Licencja
