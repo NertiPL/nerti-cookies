@@ -58,8 +58,11 @@ function nazwyZSetCookie( naglowki ) {
 }
 
 async function pobierz( adres, ciasteczko ) {
-	const r = await fetch( adres, { redirect: 'manual', headers: ciasteczko ? { Cookie: ciasteczko } : {} } );
-	return { status: r.status, ciasteczka: nazwyZSetCookie( r.headers ), cache: r.headers.get( 'x-litespeed-cache' ) || r.headers.get( 'x-cache' ) || r.headers.get( 'x-cache-enabler' ) || '' };
+	// Accept: text/html — bez niego część wtyczek cache'u (Cache Enabler) omija cache i test mierzy nie to, co widzi gość.
+	const naglowki = { Accept: 'text/html,application/xhtml+xml' };
+	if ( ciasteczko ) { naglowki.Cookie = ciasteczko; }
+	const r = await fetch( adres, { redirect: 'manual', headers: naglowki } );
+	return { status: r.status, ciasteczka: nazwyZSetCookie( r.headers ), cache: r.headers.get( 'x-litespeed-cache' ) || r.headers.get( 'x-cache-handler' ) || r.headers.get( 'x-cache' ) || r.headers.get( 'cf-cache-status' ) || '' };
 }
 
 function ciasteczkoDecyzji( wersja, kat ) {
