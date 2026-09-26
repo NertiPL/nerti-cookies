@@ -75,7 +75,8 @@ async function wersjaPolityki( strona ) {
 async function stan( kontekst, strona, hosty ) {
 	const ciasteczka = ( await kontekst.cookies() ).map( ( c ) => c.name );
 	const pamiec = await strona.evaluate( () => ( { ls: Object.keys( localStorage ), ss: Object.keys( sessionStorage ) } ) ).catch( () => ( { ls: [], ss: [] } ) );
-	const skrypty = await strona.evaluate( () => [ ...document.querySelectorAll( 'script' ) ]
+	// Własne skrypty wtyczki (start i konfiguracja banera) zawierają słowa „gtag" i nazwy ciasteczek — to nie jest śledzenie.
+	const skrypty = await strona.evaluate( () => [ ...document.querySelectorAll( 'script:not(#nc-bootstrap):not(#nerti-cookies-js-extra)' ) ]
 		.filter( ( s ) => /gtag|gtm|fbq|analytics|clarity|hotjar|tiktok|licdn|googleadservices/i.test( ( s.src || s.getAttribute( 'data-nc-src' ) || '' ) + s.textContent ) )
 		.map( ( s ) => ( { typ: s.type || '', src: s.src || s.getAttribute( 'data-nc-src' ) || '(inline)' } ) ) ).catch( () => [] );
 	return {

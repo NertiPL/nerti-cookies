@@ -330,12 +330,14 @@ class Nerti_Cookies_Ustawienia {
 			$k[] = array(
 				'id'         => $id,
 				'ukryta'     => !empty($kat['ukryta']),
-				'storage'    => array_values((array)($kat['storage'] ?? array())),
+				// Z biblioteką usług: kasowanie po wycofaniu ma sprzątać także ciasteczka usług,
+				// których projekt nie wpisał ręcznie do kategorii.
+				'storage'    => Nerti_Cookies_Uslugi::wzorce_kategorii( $id, 'storage' ),
 				'nazwa'      => $kat['nazwa'],
 				'opis'       => $kat['opis'],
 				'wymagana'   => (bool) $kat['wymagana'],
 				'domyslnie'  => (bool) $kat['domyslnie'],
-				'ciasteczka' => array_values( (array) $kat['ciasteczka'] ),
+				'ciasteczka' => Nerti_Cookies_Uslugi::wzorce_kategorii( $id, 'ciasteczka' ),
 			);
 		}
 		return array(

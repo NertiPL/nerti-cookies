@@ -155,6 +155,36 @@ class Nerti_Cookies_Blokada {
 	}
 
 	/**
+	 * Kategoria dla tekstu (adres, atrybuty, treść skryptu).
+	 *
+	 * Kolejność ma znaczenie i jest jedna dla wszystkich warstw:
+	 *  1. usługi „zawsze" z biblioteki (Turnstile) — nigdy nieblokowane, nawet gdy szerszy
+	 *     wzorzec projektu by je złapał, bo formularz bez ochrony to formularz ze spamem;
+	 *  2. mapy z ustawień (`wzorce`, `osadzenia`) — decyzja projektu;
+	 *  3. biblioteka usług.
+	 *
+	 * @param string $tekst  Tekst.
+	 * @param string $rodzaj skrypty | ramki | piksele | hosty
+	 * @return string Identyfikator kategorii albo ''.
+	 */
+	public static function kategoria( $tekst, $rodzaj = 'skrypty' ) {
+		$tekst = (string) $tekst;
+		if ( '' === trim( $tekst ) || Nerti_Cookies_Uslugi::zawsze_dozwolone( $tekst ) ) {
+			return '';
+		}
+		$u    = Nerti_Cookies_Ustawienia::pobierz();
+		$mapa = 'ramki' === $rodzaj ? $u['osadzenia'] : $u['wzorce'];
+		$kat  = self::kategoria_dla_tekstu( $tekst, $mapa );
+		if ( '' === $kat ) {
+			$kat = Nerti_Cookies_Uslugi::kategoria_dla_tekstu( $tekst, $rodzaj );
+			if ( '' === $kat && 'skrypty' !== $rodzaj ) {
+				$kat = Nerti_Cookies_Uslugi::kategoria_dla_tekstu( $tekst, 'skrypty' );
+			}
+		}
+		return $kat;
+	}
+
+	/**
 	 * Warstwa 1 — skrypty dodane przez `wp_enqueue_script`.
 	 *
 	 * @param string $tag    Pełny znacznik.
@@ -172,7 +202,15 @@ class Nerti_Cookies_Blokada {
 		if ( isset( $u['uchwyty'][ $uchwyt ] ) ) {
 			$kat = $u['uchwyty'][ $uchwyt ];
 		} else {
-			$kat = self::kategoria_dla_tekstu( (string) $src, $u['wzorce'] );
+			foreach ( Nerti_Cookies_Uslugi::wszystkie() as $usl ) {
+				if ( empty( $usl['zawsze'] ) && in_array( $uchwyt, $usl['uchwyty'], true ) ) {
+					$kat = $usl['kategoria'];
+					break;
+				}
+			}
+			if ( '' === $kat ) {
+				$kat = self::kategoria( (string) $src );
+			}
 		}
 
 		if ( '' === $kat || self::dozwolona( $kat ) ) {
@@ -201,6 +239,17 @@ class Nerti_Cookies_Blokada {
 	}
 
 	/**
+	 * Typy skryptów, które przeglądarka wykona — wprost albo przez runtime optymalizatora.
+	 * `rocketlazyloadscript` (WP Rocket, „opóźnij JS") i `litespeed/javascript` (LiteSpeed,
+	 * „opóźnij JS") nie wykonują się od razu, ale wykonają się przy pierwszym ruchu myszy,
+	 * czyli dalej przed zgodą.
+	 */
+	const TYPY_WYKONYWALNE = array( 'module', 'text/javascript', 'application/javascript', 'application/ecmascript', 'text/ecmascript', 'rocketlazyloadscript', 'text/rocketlazyloadscript', 'litespeed/javascript' );
+
+	/** Atrybuty z adresem skryptu: zwykły, WP Rocket, leniwe ładowarki, LiteSpeed. */
+	const ATRYBUTY_SRC = array( 'src', 'data-rocket-src', 'data-src', 'data-litespeed-src' );
+
+	/**
 	 * @param string $html Cała odpowiedź HTML.
 	 * @return string
 	 */
@@ -213,29 +262,60 @@ class Nerti_Cookies_Blokada {
 			return $html;
 		}
 
-		$u         = Nerti_Cookies_Ustawienia::pobierz();
-		$oryginal  = $html;
+		$u = Nerti_Cookies_Ustawienia::pobierz();
 
-		$p = new WP_HTML_Tag_Processor($html);
-		while ($p->next_tag('SCRIPT')) {
-			$id = $p->get_attribute('id');
-			$src = $p->get_attribute('src');
-			$type = $p->get_attribute('type');
-			if (in_array($id,array('nc-bootstrap','nerti-cookies-js','nerti-cookies-js-extra'),true) || $p->get_attribute('data-nc-cat')) continue;
-			if ($type && !in_array(strtolower($type),array('module','text/javascript','application/javascript','application/ecmascript','text/ecmascript'),true)) continue;
-			$kat = self::kategoria_dla_tekstu((string)$src.' '.$p->get_modifiable_text(), $u['wzorce']);
-			if ('' === $kat || self::dozwolona($kat)) continue;
-			if (is_string($src)) { $p->set_attribute('data-nc-src',$src); $p->remove_attribute('src'); }
-			if (is_string($type)) $p->set_attribute('data-nc-type',$type);
-			$p->set_attribute('data-nc-cat',$kat);
-			$p->set_attribute('type','text/plain');
+		/*
+		 * <noscript> najpierw i wyrażeniem regularnym: jego treść to dla parsera tekst,
+		 * nie znaczniki. Piksel w <noscript> strzela tylko u kogoś bez JavaScriptu — czyli
+		 * u kogoś, komu baner nigdy się nie pokaże i kto nie ma jak się zgodzić. Takiego
+		 * piksela nie przepisujemy na zablokowany, tylko wycinamy.
+		 */
+		$po_noscript = preg_replace_callback(
+			'#<noscript\b[^>]*>(.*?)</noscript>#is',
+			static function ( $m ) {
+				$kat = self::kategoria( $m[1], 'piksele' );
+				return ( '' === $kat || self::dozwolona( $kat ) ) ? $m[0] : '<noscript data-nc-cat="' . esc_attr( $kat ) . '"></noscript>';
+			},
+			$html
+		);
+		if ( is_string( $po_noscript ) ) {
+			$html = $po_noscript;
 		}
-		$html = $p->get_updated_html();
+
+		$p = new WP_HTML_Tag_Processor( $html );
+		while ( $p->next_tag() ) {
+			$tag = $p->get_tag();
+			if ( 'SCRIPT' === $tag ) {
+				self::bufor_skrypt( $p );
+			} elseif ( 'IMG' === $tag ) {
+				$src = (string) $p->get_attribute( 'src' );
+				$kat = self::kategoria( $src, 'piksele' );
+				if ( '' !== $kat && ! self::dozwolona( $kat ) && ! $p->get_attribute( 'data-nc-cat' ) ) {
+					$p->set_attribute( 'data-nc-src', $src );
+					$p->remove_attribute( 'src' );
+					$p->remove_attribute( 'srcset' );
+					$p->set_attribute( 'data-nc-cat', $kat );
+				}
+			} elseif ( 'LINK' === $tag ) {
+				// preconnect / dns-prefetch to już połączenie z serwerem śledzącym: DNS, TLS i adres IP.
+				$rel  = strtolower( (string) $p->get_attribute( 'rel' ) );
+				$href = (string) $p->get_attribute( 'href' );
+				if ( preg_match( '/\b(preconnect|dns-prefetch|preload|prefetch|modulepreload)\b/', $rel ) ) {
+					$kat = self::kategoria( $href, 'hosty' );
+					if ( '' !== $kat && ! self::dozwolona( $kat ) ) {
+						$p->set_attribute( 'data-nc-href', $href );
+						$p->remove_attribute( 'href' );
+						$p->set_attribute( 'data-nc-cat', $kat );
+					}
+				}
+			}
+		}
+		$html         = $p->get_updated_html();
 		$po_skryptach = $html;
 
 		$osadzenia_cb = function ( $m ) use ( $u ) {
 			$atrybuty = isset( $m[1] ) ? $m[1] : '';
-			$kat      = self::kategoria_dla_tekstu( $atrybuty, $u['osadzenia'] );
+			$kat      = self::kategoria( $atrybuty, 'ramki' );
 			if ( '' === $kat || self::dozwolona( $kat ) ) {
 				return $m[0];
 			}
@@ -253,6 +333,71 @@ class Nerti_Cookies_Blokada {
 		}
 
 		return $html;
+	}
+
+	/**
+	 * Jeden znacznik SCRIPT z bufora.
+	 *
+	 * @param WP_HTML_Tag_Processor $p Procesor ustawiony na znaczniku.
+	 */
+	private static function bufor_skrypt( $p ) {
+		$id = (string) $p->get_attribute( 'id' );
+		if ( in_array( $id, array( 'nc-bootstrap', 'nerti-cookies-js', 'nerti-cookies-js-extra' ), true ) || $p->get_attribute( 'data-nc-cat' ) ) {
+			return;
+		}
+		$type = $p->get_attribute( 'type' );
+		if ( is_string( $type ) && '' !== $type && ! in_array( strtolower( $type ), self::TYPY_WYKONYWALNE, true ) ) {
+			return;
+		}
+
+		$tekst   = '';
+		$atr_src = '';
+		foreach ( self::ATRYBUTY_SRC as $a ) {
+			$v = $p->get_attribute( $a );
+			if ( ! is_string( $v ) || '' === $v ) {
+				continue;
+			}
+			$tekst  .= ' ' . $v;
+			$atr_src = '' === $atr_src ? $a : $atr_src;
+			// LiteSpeed zamienia skrypty inline na data: URI w base64 — wzorzec `fbq(` trzeba szukać w środku.
+			if ( preg_match( '#^data:[^,]*;base64,(.+)$#is', $v, $m ) ) {
+				$tekst .= ' ' . (string) base64_decode( $m[1] ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions
+			} elseif ( 0 === stripos( $v, 'data:' ) ) {
+				$tekst .= ' ' . rawurldecode( $v );
+			}
+		}
+		$tekst .= ' ' . $p->get_modifiable_text();
+
+		$kat = self::kategoria( $tekst, 'skrypty' );
+		if ( '' === $kat || self::dozwolona( $kat ) ) {
+			return;
+		}
+		if ( '' !== $atr_src ) {
+			$p->set_attribute( 'data-nc-src', (string) $p->get_attribute( $atr_src ) );
+			$p->remove_attribute( $atr_src );
+		}
+		// Typy optymalizatorów nie wracają po odblokowaniu: skrypt ma się wykonać od razu po zgodzie,
+		// a runtime WP Rocket czy LiteSpeed nie wie o znacznikach dodanych po jego starcie.
+		if ( is_string( $type ) && 'module' === strtolower( $type ) ) {
+			$p->set_attribute( 'data-nc-type', $type );
+		}
+		$p->set_attribute( 'data-nc-cat', $kat );
+		$p->set_attribute( 'type', 'text/plain' );
+		self::nie_optymalizuj( $p );
+	}
+
+	/**
+	 * Znaczniki, których optymalizatory mają nie ruszać: nie łączyć, nie opóźniać,
+	 * nie przenosić. Każdy ma swój atrybut i żaden nie czyta cudzego.
+	 *
+	 * @param WP_HTML_Tag_Processor $p Procesor.
+	 */
+	public static function nie_optymalizuj( $p ) {
+		$p->set_attribute( 'data-no-optimize', '1' ); // LiteSpeed
+		$p->set_attribute( 'data-no-defer', '1' );    // LiteSpeed
+		$p->set_attribute( 'data-noptimize', '1' );   // Autoptimize
+		$p->set_attribute( 'data-cfasync', 'false' ); // Cloudflare Rocket Loader
+		$p->set_attribute( 'nowprocket', true );      // WP Rocket
 	}
 
 	/**
@@ -293,6 +438,7 @@ class Nerti_Cookies_Blokada {
 		if ( is_string( $typ ) ) { $p->set_attribute( 'data-nc-type', $typ ); }
 		$p->set_attribute( 'type', 'text/plain' );
 		$p->set_attribute( 'data-nc-cat', $kategoria );
+		self::nie_optymalizuj( $p );
 		$tag = $p->get_updated_html();
 		return $tag;
 	}
@@ -312,11 +458,18 @@ class Nerti_Cookies_Blokada {
 	private static function zastepnik_osadzenia( $oryginal, $atrybuty, $kategoria, $teksty ) {
 		$p = new WP_HTML_Tag_Processor($oryginal);
 		if (!$p->next_tag('IFRAME')) return $oryginal;
-		$src = (string)$p->get_attribute('src');
-		$tytul = (string)$p->get_attribute('title');
+		$tytul = (string) $p->get_attribute( 'title' );
+		$src   = '';
+		// Leniwe ładowarki trzymają adres w data-src / data-lazy-src i przepisują go do src
+		// po przewinięciu — bez zgody, więc zastępnik należy się i im.
+		foreach ( array( 'src', 'data-src', 'data-lazy-src', 'data-litespeed-src', 'data-rocket-src' ) as $a ) {
+			$v = $p->get_attribute( $a );
+			if ( is_string( $v ) && '' !== $v && 'about:blank' !== $v ) {
+				$src = $v;
+				break;
+			}
+		}
 		if ( '' === $src ) {
-			// Osadzenie z adresem w `data-src` (leniwe ładowanie). Nie ruszamy go zastępnikiem,
-			// bo skasowalibyśmy element; zamiast tego zostawiamy i odnotowujemy w inwentarzu.
 			return $oryginal;
 		}
 

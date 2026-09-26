@@ -47,6 +47,7 @@ define( 'NERTI_COOKIES_CIASTECZKO', 'nc_zgoda' );
 define( 'NERTI_COOKIES_DB', '1' );
 
 require_once NERTI_COOKIES_KAT . 'inc/class-ustawienia.php';
+require_once NERTI_COOKIES_KAT . 'inc/class-uslugi.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-tokeny.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-blokada.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-baner.php';

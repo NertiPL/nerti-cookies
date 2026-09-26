@@ -137,6 +137,23 @@
 			stary.parentNode.removeChild( stary );
 		} );
 
+		// Piksele obrazkowe i podpowiedzi połączeń (preconnect) — oddajemy im adres.
+		Array.prototype.forEach.call( document.querySelectorAll( 'img[data-nc-src][data-nc-cat]' ), function ( img ) {
+			if ( kat[ img.getAttribute( 'data-nc-cat' ) ] ) {
+				uruchomione[ img.getAttribute( 'data-nc-cat' ) ] = true;
+				img.src = img.getAttribute( 'data-nc-src' );
+				img.removeAttribute( 'data-nc-src' );
+				img.removeAttribute( 'data-nc-cat' );
+			}
+		} );
+		Array.prototype.forEach.call( document.querySelectorAll( 'link[data-nc-href][data-nc-cat]' ), function ( l ) {
+			if ( kat[ l.getAttribute( 'data-nc-cat' ) ] ) {
+				l.href = l.getAttribute( 'data-nc-href' );
+				l.removeAttribute( 'data-nc-href' );
+				l.removeAttribute( 'data-nc-cat' );
+			}
+		} );
+
 		var osadzenia = document.querySelectorAll( '.nc-osadzenie[data-nc-cat]' );
 		Array.prototype.forEach.call( osadzenia, function ( el ) {
 			if ( kat[ el.getAttribute( 'data-nc-cat' ) ] ) {
