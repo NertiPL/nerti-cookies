@@ -2,6 +2,43 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.5.0 — 2026-09-26
+
+Poziom Complianza, a w trzech miejscach wyżej. Powód tej wersji: 2026-09-26 na biznesoweadhd.pl wtyczka „Meta Pixel for WordPress” ustawiała `_fbp` w nagłówku `Set-Cookie` pierwszej odpowiedzi HTML, zanim ktokolwiek się zgodził. Complianz blokował skrypt `fbq`, ale ciasteczko i tak powstawało. Nerti Cookies 0.4.1 miał ten sam defekt.
+
+Zmierzone na try.local skryptem `testy/odmowa.mjs` z fiksturą, która ma każdy rodzaj śledzenia. Przed zmianą: 12 blokerów, NO GO. Po: GO, także ze stroną z cache (Cache Enabler) i z optymalizacjami JS LiteSpeed (łączenie, opóźnianie, preconnect).
+
+### Dodane
+
+- **Blokada `Set-Cookie` z PHP** (`inc/class-naglowki.php`). Ciasteczka kategorii bez zgody znikają z nagłówków każdej odpowiedzi PHP (strony, `admin-ajax.php`, REST). Ciasteczka, które gość już ma bez zgody (także HttpOnly), są kasowane nagłówkiem na każdym wariancie domeny. Ślad zatrzymanych nazw widać na pulpicie.
+- **Biblioteka usług** (`inc/class-uslugi.php`). 18 usług z kategorią, celem po polsku, odbiorcą i ciasteczkami. Cloudflare Turnstile jest niezbędny i nigdy nie jest blokowany. Kolejność dopasowania: zawsze → marketingowe → analityczne, więc `gtag/js?id=AW-…` to reklama, nie statystyka. Rozszerzenie filtrem `nerti_cookies_uslugi`.
+- **Szersza blokada w buforze**: piksele `<img>`, piksele w `<noscript>` (wycinane), `preconnect`/`dns-prefetch` do trackerów, leniwe iframe'y z `data-src`, skrypty `data:` base64 (LiteSpeed), typy `rocketlazyloadscript` i `litespeed/javascript`.
+- **Integracje** (`inc/class-integracje.php`):
+  - WP Consent API: typ `optin`, `wp_has_consent` z ciasteczka decyzji, `wp_set_consent` w banerze.
+  - Meta Pixel for WordPress: hak `facebook_signals_held` wstrzymuje ciasteczka, piksel i Conversions API wysyłane z serwera; po zgodzie `fbwcsignal.release()`.
+- **Consent Mode v2**: `personalization_storage`, `ads_data_redaction` (domyślnie włączone), `url_passthrough` (opcja). Powracający gość dostaje `update` już w `<head>`.
+- **Zgodność z cache** (`inc/class-cache.php`): wykluczenia dla WP Rocket, LiteSpeed, SiteGround Optimizer i Autoptimize oraz atrybuty „nie optymalizuj” na skryptach wtyczki i zablokowanych znacznikach.
+- **Skaner** (`inc/class-skaner.php`). Serwer pobiera podstrony jak nowy gość, a ramka w przeglądarce admina uruchamia je z pełną zgodą. Każda pozycja ma status: czeka na zgodę / działa zawsze / działa PRZED zgodą / nie rozpoznano. Nierozpoznanym przypisujesz kategorię jednym kliknięciem.
+- **Pulpit.** Pokazuje wynik pomiaru, nie samych ustawień. Kontrole: baner i wejście do wycofania na każdej podstronie, nic nie śledzi przed zgodą, adres polityki, odmowy w rejestrze. Do tego decyzje z 30 dni, CSV, „Zapytaj wszystkich ponownie” i integracje.
+- **`[nerti_cookies_lista]`**: tabela ciasteczek do polityki z ostatniego skanu.
+- **Pływający przycisk** zmiany zgody: `wycofanie = plywajacy`, widoczny po decyzji.
+- **Kreator pierwszego uruchomienia** w 4 krokach.
+- **Abilities**: `skanuj-strone`, `lista-uslug`, `eksport-rejestru`, `status` (razem 12, także jako REST).
+- **Testy**: `testy/odmowa.mjs` (refusal-test.md kroki 0–5 plus nagłówki `Set-Cookie`), fikstura `testy/fikstura/nc-fikstura.php`.
+
+### Zmienione
+
+- Odmowa w statystykach to brak kategorii opcjonalnych, także przez „Zapisz mój wybór”. Wcześniej liczyło się tylko kliknięcie „Odrzucam”.
+- CSV rejestru: średnik i BOM, więc Excel otwiera polskie znaki bez kreatora.
+- Publiczna trasa `POST /zgoda`: limit 20 zapisów na minutę z jednego (zahashowanego) adresu.
+- Zakładki panelu: Pulpit, Skanuj stronę, Ustawienia (dawniej Stan ochrony), …; „Zapisz zmiany” tylko przy zakładkach formularza.
+
+### Niesprawdzone
+
+- WP Rocket (brak licencji) i cache serwera LiteSpeed (Local ma nginx). Wykluczenia są zrobione według nazw filtrów i atrybutów, ale nie zostały zmierzone.
+- Wysyłka Conversions API przy braku zgody. Kod Meta kolejkuje zdarzenia przy `is_held()`, ale bez tokenu dostępu na try.local nie ma czego wysłać, więc widać tylko, że stan `held` jest ustawiony.
+- Czas życia ciasteczek i odbiorcy w bibliotece pochodzą z dokumentacji dostawców (stan 2026-09). Przed publikacją polityki trzeba je potwierdzić.
+
 ## 0.4.1 — 2026-09-16
 
 ### Dodane

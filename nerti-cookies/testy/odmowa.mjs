@@ -232,4 +232,4 @@ console.log( '\nWERDYKT: ' + ( bloker.length ? 'NO GO' : 'GO' ) );
 wynik.blokery = bloker;
 wynik.defekty = defekt;
 if ( plikJson ) { writeFileSync( plikJson, JSON.stringify( wynik, null, 2 ) ); }
-process.exit( bloker.length ? 1 : 0 );
+process.exitCode = bloker.length ? 1 : 0;

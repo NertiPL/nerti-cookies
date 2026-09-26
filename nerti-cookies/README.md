@@ -10,9 +10,18 @@ Baner zgód dla WordPressa, który **blokuje skrypty przed zgodą, nie po niej**
 
 **Odmowa.** Przycisk odmowy jest na pierwszym ekranie i ma tę samą wagę wizualną co przycisk zgody. Klient może przepisać jego treść, ale nie może go schować ani zmniejszyć — wyczyszczone pole wraca do wartości domyślnej. Baner, na którym łatwiej się zgodzić niż odmówić, nie zbiera ważnej zgody.
 
-**Blokada.** Trzy warstwy, bo jedna nie wystarcza w polskich instalacjach: mapa uchwytów `wp_enqueue_script`, wzorce adresów i treści skryptów, oraz bufor wyjścia łapiący piksele wklejone na sztywno w motyw. Większość pikseli w realnych wdrożeniach jest wklejona ręcznie.
+**Blokada.** Cztery warstwy, bo żadna nie wystarcza sama:
 
-**Sterowanie przez agenta.** Osiem abilities dla Agent Connector for WP, plus równoległe trasy REST dla instalacji bez niego.
+1. uchwyty `wp_enqueue_script`;
+2. bufor wyjścia: skrypty wklejone w motyw (także zamienione przez LiteSpeed na `data:` base64 i opóźnione przez WP Rocket/LiteSpeed), piksele `<img>` i `<noscript>`, `preconnect` do trackerów, iframe'y — także leniwe z `data-src` — z zaślepką „Pokaż materiał";
+3. **nagłówki `Set-Cookie` z PHP** — ciasteczka ustawiane przez serwer przed zgodą znikają z odpowiedzi (np. `_fbp` z wtyczki Meta Pixel, którego Complianz nie łapie), także w `admin-ajax.php`;
+4. integracje z wtyczkami, które same umieją czekać: WP Consent API (Site Kit, WooCommerce i inne), Meta Pixel for WordPress (wstrzymuje też Conversions API wysyłane z serwera), Google Consent Mode v2.
+
+**Biblioteka usług.** GA4, GTM, Meta Pixel, TikTok, Hotjar, Clarity, Google Ads, LinkedIn, YouTube, Vimeo, Mapy, reCAPTCHA, Spotify, atrybucja WooCommerce — z kategorią, celem po polsku, odbiorcą i ciasteczkami. Cloudflare Turnstile jest niezbędny i nigdy nie jest blokowany.
+
+**Cache.** Jeden HTML dla wszystkich: decyzję czyta przeglądarka. Skrypty wtyczki i zablokowane znaczniki są wyłączone z łączenia i opóźniania w LiteSpeed, WP Rocket, Autoptimize i SiteGround Optimizer.
+
+**Sterowanie przez agenta.** Dwanaście abilities dla Agent Connector for WP, plus równoległe trasy REST dla instalacji bez niego.
 
 ## Instalacja
 
@@ -34,11 +43,13 @@ Baner renderuje wtyczka, nie Oxygen — musi pokazać się przed zgodą, na każ
 
 ## Co klient ustawia sam
 
-*Ustawienia → Nerti Cookies*, pięć zakładek:
+Menu *Ciasteczka*. Przy pierwszym wejściu **kreator w 4 krokach**: dokumenty → skan → wygląd → sprawdzenie.
 
 | Zakładka | Co w niej jest |
 |---|---|
-| Stan | wersja polityki, liczba decyzji i odmów, źródło tokenów, stan blokady, **kto wystawia wejście do wycofania zgody** |
+| Pulpit | czy ochrona działa (wynik pomiaru, nie ustawień), co jest blokowane, decyzje z 30 dni, CSV, „Zapytaj wszystkich ponownie", ciasteczka zatrzymane na serwerze |
+| Skanuj stronę | skan podstron jak nowy gość + w przeglądarce z pełną zgodą; każda pozycja z nazwą, kategorią i statusem „czeka na zgodę / działa zawsze / działa PRZED zgodą / nie rozpoznano"; przypisanie kategorii jednym kliknięciem |
+| Ustawienia | adresy polityk, ważność decyzji, Consent Mode, **gdzie jest wejście do wycofania zgody** |
 | Wygląd | pozycja, szerokość i wielkość tekstu — **osobno dla telefonu i desktopu** — plus import tokenów i podgląd na żywo |
 | Teksty | każdy napis w banerze, z opisem gdzie się pokazuje |
 | Kategorie i skrypty | trzy kategorie, przypisane ciasteczka, mapa uchwytów i wzorców |
@@ -50,7 +61,13 @@ Zgodę trzeba dać się wycofać tak samo łatwo, jak się jej udzieliło — to
 
 Jeżeli wejście jest już w projekcie strony — dowolny element z atrybutem `data-nc-akcja="otworz"` — przestaw Stan → *Wycofanie zgody* na „wejście jest w projekcie strony”. Wtyczka nie dokłada wtedy nic, a przeniesienie z designu zostaje 1:1. Przestawiaj to dopiero wtedy, gdy takie wejście na stronie naprawdę jest.
 
-Na Oxygenie i Breakdanie skrót `[nerti_cookies_ustawienia]` w treści strony **się nie wykona** — builder omija `the_content`. Tam używa się atrybutu.
+Trzecia opcja: **mały przycisk w rogu ekranu**, widoczny dopiero po decyzji.
+
+Na Oxygenie i Breakdanie skrót `[nerti_cookies_ustawienia]` w treści strony **się nie wykona** — builder omija `the_content`. Tam używa się atrybutu albo elementu „Shortcode".
+
+### Lista ciasteczek do polityki
+
+`[nerti_cookies_lista]` na podstronie polityki cookies: tabela z ostatniego skanu — narzędzie, po co, ciasteczka z czasem przechowywania, kto otrzymuje dane. Pozycje nierozpoznane nie trafiają do tabeli, dopóki administrator nie przypisze im kategorii.
 Podniesienie wersji polityki **unieważnia wszystkie dotychczasowe zgody** i pokazuje baner od nowa. To osobna operacja, a nie efekt uboczny zapisu ustawień: zmiana treści polityki bez odpytania ludzi na nowo znaczy, że rejestr dowodzi zgody na dokument, którego oni nie widzieli.
 
 ## Sterowanie przez MCP
@@ -67,6 +84,10 @@ Wtyczka rejestruje się jako paczka abilities Agent Connector for WP. Uwierzytel
 | `nerti-cookies/statystyki-zgod` | ile decyzji, ile odmów, ostatnia |
 | `nerti-cookies/inwentarz-skryptow` | jakie skrypty zewnętrzne faktycznie są na stronie |
 | `nerti-cookies/zaproponuj-dokumenty` | komplet dokumentów prawnych dobrany do typu strony |
+| `nerti-cookies/skanuj-strone` | skan podstron (serwer) z kategorią i statusem każdej pozycji; `tylko_lista`, `dopisz`, `zapisany` |
+| `nerti-cookies/lista-uslug` | biblioteka rozpoznawanych usług |
+| `nerti-cookies/eksport-rejestru` | rejestr zgód jako CSV albo JSON, od daty, z limitem |
+| `nerti-cookies/status` | to samo co pulpit: kontrole, werdykt, skan, decyzje z 30 dni, integracje, cache |
 
 `zaproponuj-dokumenty` rozdziela dwa warianty: strona wizytówkowa dostaje **jeden** dokument z ciasteczkami w środku, sklep dostaje osobne polityki, regulamin i pouczenie o odstąpieniu. Przy pytaniu o deklarację dostępności (European Accessibility Act) ability nie zgaduje: bez podanej liczby pracowników i obrotu zwraca `PYTANIE DO KLIENTA`, bo mikroprzedsiębiorca usługowy jest z tego obowiązku zwolniony w całości.
 
@@ -81,6 +102,14 @@ wp eval-file wp-content/plugins/nerti-cookies/testy/sprawdz-dokumenty.php
 wp eval-file wp-content/plugins/nerti-cookies/testy/sprawdz-oxygena.php
 wp eval-file wp-content/plugins/nerti-cookies/testy/sprawdz-wycofanie.php
 ```
+
+**Test odmowy (bramka Q-COOKIE) jako skrypt** — tylko na lokalnej witrynie testowej:
+
+```bash
+node testy/odmowa.mjs http://try.local/nc-test/ http://try.local/
+```
+
+Sprawdza nagłówki `Set-Cookie` bez przeglądarki (nowy gość, po odmowie, po zgodzie), potem w czystej sesji Chromium: stan przed decyzją, odmowę jednym kliknięciem, stan po odmowie i po przeładowaniu, wycofanie zgody. Kod wyjścia 1 przy blokerze. Stronę z każdym rodzajem śledzenia daje fikstura `testy/fikstura/nc-fikstura.php` (do `mu-plugins` witryny testowej, nigdy na stronę klienta).
 
 ## Licencja
 
