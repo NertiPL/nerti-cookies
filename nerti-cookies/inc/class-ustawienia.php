@@ -154,7 +154,7 @@ class Nerti_Cookies_Ustawienia {
 
 			'teksty'           => array(
 				'tytul'        => 'Ciasteczka',
-				'tresc'        => 'Używamy ciasteczek niezbędnych do działania strony. Na pozostałe — analityczne i marketingowe — potrzebujemy Twojej zgody. Możesz ją wycofać w każdej chwili.',
+				'tresc'        => 'Używamy ciasteczek niezbędnych do działania strony. Na pozostałe, analityczne i marketingowe, potrzebujemy Twojej zgody. Możesz ją wycofać w każdej chwili.',
 				'akceptuj'     => 'Akceptuję wszystkie',
 				'odrzuc'       => 'Odrzucam wszystkie',
 				'ustawienia'   => 'Wybieram sam',
@@ -436,14 +436,14 @@ class Nerti_Cookies_Ustawienia {
 	public static function opisy_tekstow() {
 		return array(
 			'tytul'         => array( 'Nagłówek banera', 'Pierwsza linia banera, dużym krojem.', false ),
-			'tresc'         => array( 'Treść banera', 'Akapit pod nagłówkiem. Jedno-dwa zdania — dłuższego nikt nie przeczyta przed kliknięciem.', true ),
-			'odrzuc'        => array( 'Przycisk odmowy', 'Pierwszy przycisk na pierwszym ekranie. Musi zostać — pusty wraca do domyślnego.', false ),
+			'tresc'         => array( 'Treść banera', 'Akapit pod nagłówkiem. Jedno albo dwa zdania. Dłuższego nikt nie przeczyta przed kliknięciem.', true ),
+			'odrzuc'        => array( 'Przycisk odmowy', 'Pierwszy przycisk na pierwszym ekranie. Musi zostać. Pusty wraca do domyślnego.', false ),
 			'akceptuj'      => array( 'Przycisk zgody', 'Drugi przycisk na pierwszym ekranie, tej samej wielkości co odmowa.', false ),
-			'ustawienia'    => array( 'Wejście w wybór szczegółowy', 'Trzeci element pierwszego ekranu — rozwija listę kategorii.', false ),
+			'ustawienia'    => array( 'Wejście w wybór szczegółowy', 'Trzeci element pierwszego ekranu. Rozwija listę kategorii.', false ),
 			'zapisz'        => array( 'Zapis wyboru szczegółowego', 'Przycisk pod listą kategorii, widoczny po rozwinięciu.', false ),
 			'zamknij'       => array( 'Opis krzyżyka', 'Czyta go czytnik ekranu; sam krzyżyk pokazuje się tylko wtedy, gdy projekt go włączy. Zamknięcie zapisuje decyzję zgodną z przełącznikami, nie omija jej.', false ),
 			'polityka'      => array( 'Podpis linku do polityki prywatności', 'Widoczny w banerze tylko wtedy, gdy adres polityki jest uzupełniony w zakładce Stan.', false ),
-			'cookies'       => array( 'Podpis linku do polityki cookies', 'Jak wyżej — pokazuje się tylko przy uzupełnionym adresie.', false ),
+			'cookies'       => array( 'Podpis linku do polityki cookies', 'Jak wyżej: pokazuje się tylko przy uzupełnionym adresie.', false ),
 			'wycofaj'       => array( 'Link wycofania zgody', 'Tekst wejścia do zmiany zgody: przycisku wtyczki, skrótu [nerti_cookies_ustawienia] i elementu z data-nc-akcja="otworz".', false ),
 			'osadzenie'     => array( 'Zastępnik zablokowanego materiału', 'Pokazuje się w miejscu filmu z YouTube albo mapy, dopóki nie ma zgody marketingowej.', true ),
 			'osadzenie_btn' => array( 'Przycisk pod zastępnikiem', 'Klikniecie odblokowuje ten jeden materiał.', false ),
@@ -606,7 +606,7 @@ class Nerti_Cookies_Ustawienia {
 					<td><label><input type="radio" name="wycofanie" value="wtyczka" <?php checked( ! in_array( $u['wycofanie'], array( 'strona', 'plywajacy' ), true ) ); ?>> wtyczka dokłada wejście na dole każdej podstrony</label><br>
 					<label><input type="radio" name="wycofanie" value="plywajacy" <?php checked( 'plywajacy' === $u['wycofanie'] ); ?>> mały przycisk w rogu ekranu, widoczny po podjęciu decyzji</label><br>
 					<label><input type="radio" name="wycofanie" value="strona" <?php checked( 'strona' === $u['wycofanie'] ); ?>> wejście jest w projekcie strony (element z <code>data-nc-akcja="otworz"</code>)</label>
-					<p class="description">Zgodę trzeba dać się wycofać tak samo łatwo, jak się jej udzieliło. Drugą opcję wybierz dopiero wtedy, gdy takie wejście na stronie NAPRAWDĘ jest — inaczej zostaje baner bez wyjścia.</p></td>
+					<p class="description">Zgodę trzeba dać się wycofać tak samo łatwo, jak się jej udzieliło. Drugą opcję wybierz dopiero wtedy, gdy takie wejście na stronie NAPRAWDĘ jest. Inaczej zostaje baner bez wyjścia.</p></td>
 				</tr>
 				<tr>
 					<th>Google Consent Mode</th>
@@ -670,7 +670,7 @@ class Nerti_Cookies_Ustawienia {
 			</p>
 
 			<h3>Ustawienie osobno dla telefonu i dla desktopu</h3>
-			<p class="description">Granica między nimi to 48rem (przy domyślnych ustawieniach przeglądarki 768&nbsp;px) — jedyny próg, na którym dwa przyciski przestają się mieścić obok siebie.</p>
+			<p class="description">Granica między nimi to 48rem (przy domyślnych ustawieniach przeglądarki 768&nbsp;px). Poniżej tego progu dwa przyciski nie mieszczą się obok siebie.</p>
 
 			<div class="nc-urzadzenia">
 				<?php foreach ( $urzadzenia as $klucz => $etykieta ) : ?>
@@ -813,7 +813,7 @@ class Nerti_Cookies_Ustawienia {
 			<p class="description">Rejestr z zerem odmów przy setkach zgód jest sygnałem defektu, nie sukcesu —
 			znaczy zwykle, że przycisk odmowy jest niewidoczny albo nie zapisuje.</p>
 
-			<p>Eksport całego rejestru do pliku CSV. Potrzebny wtedy, gdy ktoś kwestionuje zgodę — a wtedy nikt nie ma czasu na zapytanie SQL.</p>
+			<p>Eksport całego rejestru do pliku CSV. Przydaje się, gdy ktoś kwestionuje zgodę. Wtedy nikt nie ma czasu pisać zapytań do bazy.</p>
 			<form method="post" action="<?php echo $akcja; ?>">
 				<input type="hidden" name="action" value="nerti_cookies_eksport">
 				<?php wp_nonce_field( 'nerti_cookies_eksport' ); ?>
@@ -846,7 +846,7 @@ class Nerti_Cookies_Ustawienia {
 		} elseif ( isset( $_POST['importuj_oxygen'] ) ) {
 			$w    = Nerti_Cookies_Tokeny::importuj_z_oxygena();
 			$info = ! empty( $w['ok'] )
-				? sprintf( 'Wygląd wczytany z Oxygena: %d zmiennych.', (int) $w['ile'] ) . ( empty( $w['ostrzezenia'] ) ? '' : ' Zgłoszono problem z kontrastem — patrz komunikat wyżej.' )
+				? sprintf( 'Wygląd wczytany z Oxygena: %d zmiennych.', (int) $w['ile'] ) . ( empty( $w['ostrzezenia'] ) ? '' : ' Zgłoszono problem z kontrastem, szczegóły w komunikacie wyżej.' )
 				: 'Nie udało się wczytać z Oxygena: ' . $w['blad'];
 		} elseif ( isset( $_POST['wyczysc_tokeny'] ) ) {
 			delete_option( Nerti_Cookies_Tokeny::OPCJA );

@@ -19,8 +19,8 @@ class Nerti_Cookies_Pulpit {
 	const STATUSY = array(
 		'blokowane' => array( 'Czeka na zgodę', 'nc-status--ok' ),
 		'zawsze'    => array( 'Działa zawsze (niezbędne)', 'nc-status--info' ),
-		'BLAD'      => array( 'Działa PRZED zgodą — do naprawy', 'nc-status--blad' ),
-		'nieznane'  => array( 'Nie rozpoznano — przypisz kategorię', 'nc-status--uwaga' ),
+		'BLAD'      => array( 'Działa PRZED zgodą, do naprawy', 'nc-status--blad' ),
+		'nieznane'  => array( 'Nie rozpoznano, przypisz kategorię', 'nc-status--uwaga' ),
 	);
 
 	const TYPY = array(
@@ -61,20 +61,20 @@ class Nerti_Cookies_Pulpit {
 		$k      = array();
 
 		if ( ! $skan['jest'] ) {
-			$k[] = array( false, 'blad', 'Strona nie była jeszcze skanowana — nie wiadomo, co ładuje.', 'skan' );
+			$k[] = array( false, 'blad', 'Strony jeszcze nie skanowano, więc nie wiadomo, co ładuje.', 'skan' );
 		} else {
 			$dni = (int) floor( ( time() - $skan['czas'] ) / DAY_IN_SECONDS );
-			$k[] = array( $dni <= 30, 'uwaga', 0 === $dni ? 'Skan z dzisiaj.' : sprintf( 'Ostatni skan %d dni temu.', $dni ) . ( $dni > 30 ? ' Zeskanuj ponownie — nowe wtyczki mogły dołożyć narzędzia.' : '' ), 'skan' );
+			$k[] = array( $dni <= 30, 'uwaga', 0 === $dni ? 'Skan z dzisiaj.' : sprintf( 'Ostatni skan %d dni temu.', $dni ) . ( $dni > 30 ? ' Zeskanuj ponownie, bo nowe wtyczki mogły dołożyć narzędzia.' : '' ), 'skan' );
 			$k[] = array( 0 === $skan['licz']['BLAD'], 'blad', 0 === $skan['licz']['BLAD'] ? 'Żadne narzędzie śledzące nie działa przed zgodą.' : sprintf( '%d narzędzi działa PRZED zgodą.', $skan['licz']['BLAD'] ), 'skan' );
 			$k[] = array( ! $skan['bez_banera'], 'blad', ! $skan['bez_banera'] ? sprintf( 'Baner jest na każdej sprawdzonej podstronie (%d).', $skan['stron'] ) : 'Brak banera na: ' . self::sciezki( $skan['bez_banera'] ), 'skan' );
-			$k[] = array( ! $skan['bez_wycofania'], 'blad', ! $skan['bez_wycofania'] ? 'Wejście do zmiany zgody jest na każdej sprawdzonej podstronie.' : 'Brak wejścia do zmiany zgody na: ' . self::sciezki( $skan['bez_wycofania'] ) . ( 'strona' === $u['wycofanie'] ? ' (ustawienie „wejście w projekcie strony" — strona go nie ma).' : '' ), 'stan' );
-			$k[] = array( 0 === $skan['licz']['nieznane'], 'uwaga', 0 === $skan['licz']['nieznane'] ? 'Wszystko, co znalazł skan, jest rozpoznane.' : sprintf( '%d pozycji nierozpoznanych — przypisz im kategorię.', $skan['licz']['nieznane'] ), 'skan' );
-			$k[] = array( $skan['przegladarka'] > 0, 'uwaga', $skan['przegladarka'] > 0 ? 'Skan objął też ciasteczka ustawiane w przeglądarce.' : 'Skan był tylko po stronie serwera — ciasteczek ustawianych przez skrypty nie widać. Uruchom skan z panelu.', 'skan' );
+			$k[] = array( ! $skan['bez_wycofania'], 'blad', ! $skan['bez_wycofania'] ? 'Wejście do zmiany zgody jest na każdej sprawdzonej podstronie.' : 'Brak wejścia do zmiany zgody na: ' . self::sciezki( $skan['bez_wycofania'] ) . ( 'strona' === $u['wycofanie'] ? ' (wybrano „wejście w projekcie strony", a strona go nie ma).' : '' ), 'stan' );
+			$k[] = array( 0 === $skan['licz']['nieznane'], 'uwaga', 0 === $skan['licz']['nieznane'] ? 'Wszystko, co znalazł skan, jest rozpoznane.' : sprintf( 'Nierozpoznane pozycje: %d. Przypisz im kategorię.', $skan['licz']['nieznane'] ), 'skan' );
+			$k[] = array( $skan['przegladarka'] > 0, 'uwaga', $skan['przegladarka'] > 0 ? 'Skan objął też ciasteczka ustawiane w przeglądarce.' : 'Skan był tylko po stronie serwera, więc nie widać ciasteczek ustawianych przez skrypty. Uruchom skan z panelu.', 'skan' );
 		}
-		$k[] = array( '' !== $u['link_polityka'], 'blad', '' !== $u['link_polityka'] ? 'Baner linkuje do polityki prywatności.' : 'Brak adresu polityki prywatności — baner nie ma do czego odesłać.', 'stan' );
+		$k[] = array( '' !== $u['link_polityka'], 'blad', '' !== $u['link_polityka'] ? 'Baner linkuje do polityki prywatności.' : 'Brak adresu polityki prywatności. Baner nie ma do czego odesłać.', 'stan' );
 		$k[] = array( ! empty( $u['bufor_wyjscia'] ), 'blad', ! empty( $u['bufor_wyjscia'] ) ? 'Blokada łapie też skrypty wklejone w motyw.' : 'Blokada skryptów wklejonych w motyw jest WYŁĄCZONA.', 'stan' );
 		if ( $zgody['razem'] >= 20 ) {
-			$k[] = array( $zgody['odmowy'] > 0, 'blad', $zgody['odmowy'] > 0 ? 'Rejestr zapisuje odmowy.' : 'Rejestr ma zgody, ale zero odmów — to zwykle znaczy, że odmowa się nie zapisuje.', 'rejestr' );
+			$k[] = array( $zgody['odmowy'] > 0, 'blad', $zgody['odmowy'] > 0 ? 'Rejestr zapisuje odmowy.' : 'Rejestr ma zgody, ale zero odmów. Zwykle znaczy to, że odmowa się nie zapisuje.', 'rejestr' );
 		}
 		return $k;
 	}
@@ -100,7 +100,7 @@ class Nerti_Cookies_Pulpit {
 			<h2>Pulpit</h2>
 			<div class="nc-werdykt <?php echo $bledy ? 'nc-werdykt--blad' : ( $uwagi ? 'nc-werdykt--uwaga' : 'nc-werdykt--ok' ); ?>">
 				<strong><?php echo $bledy ? esc_html( sprintf( 'Wymaga naprawy: %d', $bledy ) ) : ( $uwagi ? 'Działa, są uwagi' : 'Ochrona działa' ); ?></strong>
-				<span><?php echo $bledy ? 'Poniżej, co jest nie tak i gdzie to poprawić.' : 'Wynik z ostatniego skanu i z rejestru zgód, nie z samych ustawień.'; ?></span>
+				<span><?php echo $bledy ? 'Poniżej, co jest nie tak i gdzie to poprawić.' : 'Na podstawie ostatniego skanu i rejestru zgód, a nie samych ustawień.'; ?></span>
 			</div>
 
 			<ul class="nc-kontrole">
@@ -118,7 +118,7 @@ class Nerti_Cookies_Pulpit {
 			<h3>Co działa zawsze</h3>
 			<p><?php echo $zawsze ? esc_html( implode( ', ', array_keys( $zawsze ) ) ) : '—'; ?></p>
 
-			<h3>Decyzje odwiedzających — ostatnie 30 dni</h3>
+			<h3>Decyzje odwiedzających z ostatnich 30 dni</h3>
 			<div class="nc-liczby">
 				<div><strong><?php echo esc_html( (string) $okres['razem'] ); ?></strong><span>decyzji</span></div>
 				<div><strong><?php echo esc_html( (string) $okres['wszystko'] ); ?></strong><span>zgoda na wszystko</span></div>
@@ -263,7 +263,7 @@ class Nerti_Cookies_Pulpit {
 			$skan['pozycje'][ $k ]['status']    = 'niezbedne' === $kat ? 'zawsze' : 'blokowane';
 			update_option( Nerti_Cookies_Skaner::OPCJA, $skan, false );
 		}
-		wp_safe_redirect( admin_url( 'admin.php?page=nerti-cookies&nc-info=' . rawurlencode( 'Przypisano kategorię. Blokada działa od następnego wyświetlenia strony — wyczyść cache strony.' ) . '#nc-skan' ) );
+		wp_safe_redirect( admin_url( 'admin.php?page=nerti-cookies&nc-info=' . rawurlencode( 'Przypisano kategorię. Blokada działa od następnego wyświetlenia strony. Wyczyść cache strony.' ) . '#nc-skan' ) );
 		exit;
 	}
 

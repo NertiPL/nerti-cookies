@@ -182,7 +182,7 @@ class Nerti_Cookies_Uslugi {
 				'ciasteczka' => array( 'sp_t' => '1 rok', 'sp_landing' => '1 dzień' ),
 			),
 			'woo-atrybucja' => array(
-				'nazwa'      => 'WooCommerce — atrybucja zamówień',
+				'nazwa'      => 'WooCommerce: atrybucja zamówień',
 				'kategoria'  => 'marketingowe',
 				'cel'        => 'Zapamiętuje, z jakiej kampanii albo strony przyszedł klient, i dopisuje to do zamówienia.',
 				'odbiorca'   => 'Właściciel sklepu (dane zostają na serwerze strony)',
@@ -209,7 +209,7 @@ class Nerti_Cookies_Uslugi {
 				'kategoria'  => 'niezbedne',
 				'zawsze'     => true,
 				'cel'        => 'Zapamiętuje, na które ciasteczka się zgodziłeś, żeby nie pytać przy każdej podstronie.',
-				'odbiorca'   => 'Nikt — ciasteczko zostaje w przeglądarce, decyzja w rejestrze zgód strony',
+				'odbiorca'   => 'Nikt. Ciasteczko zostaje w przeglądarce, a decyzja w rejestrze zgód strony',
 				'ciasteczka' => array( NERTI_COOKIES_CIASTECZKO => '6 miesięcy', 'wp_consent_*' => '30 dni', 'wc_facebook_signals_state' => '1 rok' ),
 			),
 			'wordpress' => array(
@@ -217,16 +217,16 @@ class Nerti_Cookies_Uslugi {
 				'kategoria'  => 'niezbedne',
 				'zawsze'     => true,
 				'cel'        => 'Logowanie do panelu i zapamiętanie ustawień zalogowanego użytkownika.',
-				'odbiorca'   => 'Nikt — dane zostają na serwerze strony',
+				'odbiorca'   => 'Nikt. Dane zostają na serwerze strony',
 				'ciasteczka' => array( 'wordpress_*' => 'sesja lub 14 dni', 'wordpress_logged_in_*' => 'sesja lub 14 dni', 'wp-settings-*' => '1 rok', 'wordpress_test_cookie' => 'sesja', 'PHPSESSID' => 'sesja', 'comment_author_*' => '1 rok' ),
 				'storage'    => array( 'wpEmojiSettingsSupports', 'wp-autosave-*' ),
 			),
 			'woocommerce' => array(
-				'nazwa'      => 'WooCommerce — koszyk',
+				'nazwa'      => 'WooCommerce: koszyk',
 				'kategoria'  => 'niezbedne',
 				'zawsze'     => true,
 				'cel'        => 'Pamięta zawartość koszyka i sesję zakupów.',
-				'odbiorca'   => 'Nikt — dane zostają na serwerze strony',
+				'odbiorca'   => 'Nikt. Dane zostają na serwerze strony',
 				'ciasteczka' => array( 'woocommerce_cart_hash' => 'sesja', 'woocommerce_items_in_cart' => 'sesja', 'wp_woocommerce_session_*' => '2 dni', 'woocommerce_recently_viewed' => 'sesja' ),
 			),
 		);

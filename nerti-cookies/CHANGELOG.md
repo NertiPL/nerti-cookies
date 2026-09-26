@@ -2,6 +2,16 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.5.1 — 2026-09-26
+
+### Zmienione
+
+- **Teksty po polsku przeszły przez deslop.** Baner, opisy kategorii, cele usług do polityki, pulpit, skaner i kreator. Bramka `qa-static`: przed zmianą 26 pauz w środku zdania (AS-01), po zmianie 0; wzmacniaczy 0 na 2021 słów. Domyślna treść banera to teraz „Na pozostałe, analityczne i marketingowe, potrzebujemy Twojej zgody.” Strony z własnym tekstem banera nie zmieniają się, bo zapisany tekst ma pierwszeństwo przed domyślnym.
+
+### Sprawdzone
+
+- WooCommerce 11.1 na try.local: przed decyzją i po odmowie żadnych ciasteczek `sbjs_*` ani śledzących, koszyk bez zmian. Atrybucji zamówień po zgodzie nie zmierzono, bo szablon strony testowej nie ładuje jej skryptu.
+
 ## 0.5.0 — 2026-09-26
 
 Poziom Complianza, a w trzech miejscach wyżej. Powód tej wersji: 2026-09-26 na biznesoweadhd.pl wtyczka „Meta Pixel for WordPress” ustawiała `_fbp` w nagłówku `Set-Cookie` pierwszej odpowiedzi HTML, zanim ktokolwiek się zgodził. Complianz blokował skrypt `fbq`, ale ciasteczko i tak powstawało. Nerti Cookies 0.4.1 miał ten sam defekt.

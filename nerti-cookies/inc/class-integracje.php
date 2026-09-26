@@ -92,7 +92,7 @@ class Nerti_Cookies_Integracje {
 	 */
 	public static function wykryte() {
 		return array(
-			array( 'nazwa' => 'WP Consent API', 'aktywna' => function_exists( 'wp_has_consent' ), 'jak' => 'Przekazujemy decyzję innym wtyczkom (Site Kit, WooCommerce i inne, które wspierają WP Consent API).' ),
+			array( 'nazwa' => 'WP Consent API', 'aktywna' => function_exists( 'wp_has_consent' ), 'jak' => 'Decyzja odwiedzającego trafia do wtyczek, które obsługują WP Consent API (np. Site Kit, WooCommerce).' ),
 			array( 'nazwa' => 'Meta Pixel for WordPress', 'aktywna' => class_exists( '\\FacebookPixelPlugin\\Core\\FacebookSignalState' ), 'jak' => 'Bez zgody marketingowej wtyczka Meta wstrzymuje ciasteczka, piksel i wysyłkę z serwera.' ),
 			array( 'nazwa' => 'Site Kit by Google', 'aktywna' => defined( 'GOOGLESITEKIT_VERSION' ), 'jak' => 'Tag Google blokowany do zgody, decyzja przez WP Consent API i Consent Mode.' ),
 			array( 'nazwa' => 'WooCommerce', 'aktywna' => class_exists( 'WooCommerce' ), 'jak' => 'Koszyk działa zawsze; atrybucja zamówień (sbjs_*) dopiero po zgodzie marketingowej.' ),

@@ -63,7 +63,7 @@ class Nerti_Cookies_Kreator {
 		$u    = Nerti_Cookies_Ustawienia::pobierz();
 		?>
 		<div class="wrap nc-panel nc-kreator">
-			<h1>Ciasteczka — pierwsze uruchomienie</h1>
+			<h1>Ciasteczka: pierwsze uruchomienie</h1>
 			<ol class="nc-kreator__kroki">
 				<?php foreach ( self::kroki() as $n => $nazwa ) : ?>
 					<li class="<?php echo $n === $krok ? 'is-aktywny' : ( $n < $krok ? 'is-zrobiony' : '' ); ?>" <?php echo $n === $krok ? 'aria-current="step"' : ''; ?>>
@@ -184,7 +184,7 @@ class Nerti_Cookies_Kreator {
 			<li>Odśwież stronę. Baner nie powinien wrócić, a filmy i mapy mają pokazywać prostokąt „Pokaż materiał" zamiast odtwarzacza.</li>
 		</ol>
 		<?php if ( $bledy ) : ?>
-			<p class="nc-kreator__uwaga"><strong>Są rzeczy do naprawy.</strong> Możesz zakończyć kreator — lista zostanie na pulpicie, dopóki ich nie poprawisz.</p>
+			<p class="nc-kreator__uwaga"><strong>Są rzeczy do naprawy.</strong> Możesz zakończyć kreator. Lista zostanie na pulpicie, dopóki ich nie poprawisz.</p>
 		<?php endif; ?>
 		<?php
 		self::stopka_formularza( 4, 'Zakończ i przejdź do pulpitu' );
