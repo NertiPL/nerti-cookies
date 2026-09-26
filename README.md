@@ -26,7 +26,7 @@ nerti-cookies/
 `node --check` na `baner.js`. Niesprawdzone: cokolwiek, co wymaga działającej instalacji.
 
 Zanim uznasz wtyczkę za gotową, wykonaj **test przez odmowę** — procedura w
-`C:\AI\webdev\plugins\nerti-web\skills\cookie-consent\test-odmowy.md`. Klikasz „odrzuć"
+`C:\Claude\websites\.claude\skills\cookie-consent\test-odmowy.md`. Klikasz „odrzuć"
 i sprawdzasz w zakładce Sieć, czy naprawdę nic nie poszło. Zgoda, która nic nie blokuje,
 jest gorsza niż brak banera — bo wygląda na zgodność.
 
