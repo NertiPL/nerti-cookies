@@ -73,7 +73,12 @@ async function wersjaPolityki( strona ) {
 /* ---------- B/C. przeglądarka ---------- */
 
 async function stan( kontekst, strona, hosty ) {
-	const ciasteczka = ( await kontekst.cookies() ).map( ( c ) => c.name );
+	// Tylko ciasteczka strony. Ciasteczka stron trzecich (.tiktok.com, .linkedin.com) po zgodzie
+	// zostają w przeglądarce i żadna strona nie może ich skasować; przed zgodą nie powstają wcale,
+	// bo nie ma żądań — a żądania liczymy osobno.
+	const host = new URL( strona.url() ).hostname;
+	const wszystkie = await kontekst.cookies();
+	const ciasteczka = wszystkie.filter( ( c ) => host === c.domain.replace( /^\./, '' ) || host.endsWith( c.domain.startsWith( '.' ) ? c.domain : '.' + c.domain ) ).map( ( c ) => c.name );
 	const pamiec = await strona.evaluate( () => ( { ls: Object.keys( localStorage ), ss: Object.keys( sessionStorage ) } ) ).catch( () => ( { ls: [], ss: [] } ) );
 	// Własne skrypty wtyczki (start i konfiguracja banera) zawierają słowa „gtag" i nazwy ciasteczek — to nie jest śledzenie.
 	const skrypty = await strona.evaluate( () => [ ...document.querySelectorAll( 'script:not(#nc-bootstrap):not(#nerti-cookies-js-extra)' ) ]

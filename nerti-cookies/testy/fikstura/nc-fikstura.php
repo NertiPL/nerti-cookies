@@ -83,7 +83,7 @@ add_action(
 <h2>Vimeo leniwe</h2><iframe data-src="https://player.vimeo.com/video/76979871" class="lazyload" width="640" height="360" title="Vimeo testowe"></iframe>
 <h2>Piksel</h2><img src="https://www.facebook.com/tr?id=000&amp;ev=PageView&amp;noscript=1" width="1" height="1" alt="">
 <noscript><img src="https://px.ads.linkedin.com/collect/?pid=000&amp;fmt=gif" width="1" height="1" alt=""></noscript>
-<h2>Formularz</h2><div class="cf-turnstile" data-sitekey="1x00000000000000000000AA"></div></main>'; // phpcs:ignore
+<h2>Formularz</h2><div class="cf-turnstile" data-sitekey="1x00000000000000000000AA"></div><p><button type="button" data-nc-akcja="otworz">Ustawienia cookies (wejście projektu)</button></p></main>'; // phpcs:ignore
 	},
 	1
 );

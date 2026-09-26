@@ -324,14 +324,17 @@ class Nerti_Cookies_Blokada {
 
 		$html = preg_replace_callback( '#<iframe\b([^>]*)>.*?</iframe>#is', $osadzenia_cb, $html );
 		if ( ! is_string( $html ) ) {
+			do_action( 'nerti_cookies_przed_wyslaniem' );
 			return $po_skryptach;
 		}
 
 		$html = preg_replace_callback( '#<iframe\b([^>]*?)\s*/>#i', $osadzenia_cb, $html );
 		if ( ! is_string( $html ) ) {
-			return $po_skryptach;
+			$html = $po_skryptach;
 		}
 
+		// Ostatnia chwila przed wysłaniem nagłówków tej strony — zapas dla Nerti_Cookies_Naglowki.
+		do_action( 'nerti_cookies_przed_wyslaniem' );
 		return $html;
 	}
 
