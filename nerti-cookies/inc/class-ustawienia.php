@@ -238,7 +238,7 @@ class Nerti_Cookies_Ustawienia {
 			if ('' === (string)$w || !in_array($kat,array('niezbedne','analityczne','marketingowe'),true)) return new WP_Error('nc_pattern','Nieprawidłowy wzorzec lub kategoria.',array('status'=>400));
 		}
 		foreach (array('consent_mode','bufor_wyjscia','cm_redakcja','cm_url_passthrough') as $k) if (isset($nowe[$k]) && !is_bool($nowe[$k])) return new WP_Error('nc_config','Przełącznik musi być bool.',array('status'=>400));
-		if (isset($nowe['wycofanie']) && !in_array($nowe['wycofanie'], array('wtyczka','strona'), true)) return new WP_Error('nc_config','Wycofanie: wtyczka albo strona.',array('status'=>400));
+		if (isset($nowe['wycofanie']) && !in_array($nowe['wycofanie'], array('wtyczka','plywajacy','strona'), true)) return new WP_Error('nc_config','Wycofanie: wtyczka, plywajacy albo strona.',array('status'=>400));
 		foreach (($nowe['teksty'] ?? array()) as $v) if (!is_string($v)) return new WP_Error('nc_config','Teksty muszą być ciągami znaków.',array('status'=>400));
 		$biezace = get_option( self::OPCJA, array() );
 		$biezace = is_array( $biezace ) ? $biezace : array();
@@ -361,12 +361,14 @@ class Nerti_Cookies_Ustawienia {
 	/** Zakładki ekranu, w kolejności wyświetlania. */
 	public static function zakladki() {
 		return array(
-			'stan'      => 'Stan ochrony',
+			'pulpit'    => 'Pulpit',
+			'skan'      => 'Skanuj stronę',
+			'stan'      => 'Ustawienia',
 			'wyglad'    => 'Wygląd',
 			'teksty'    => 'Teksty',
 			'kategorie' => 'Kategorie i skrypty',
 			'dokumenty' => 'Dokumenty',
-			'testy' => 'Inwentarz i testy',
+			'testy'     => 'Testy',
 			'rejestr'   => 'Historia zgód',
 		);
 	}
@@ -416,6 +418,8 @@ class Nerti_Cookies_Ustawienia {
 					'ncPanel',
 					array(
 						'pozycje'  => Nerti_Cookies_Tokeny::pozycje(),
+						'rest'     => esc_url_raw( rest_url( 'nerti-cookies/v1/' ) ),
+						'nonce'    => wp_create_nonce( 'wp_rest' ),
 						'rozmiary' => Nerti_Cookies_Tokeny::rozmiary(),
 					)
 				);
@@ -491,7 +495,10 @@ class Nerti_Cookies_Ustawienia {
 			<div class="nc-uklad">
 				<div class="nc-uklad__tresc">
 
-					<form method="post" action="<?php echo $akcja; ?>">
+					<?php Nerti_Cookies_Pulpit::sekcja_pulpit(); ?>
+					<?php Nerti_Cookies_Pulpit::sekcja_skan(); ?>
+
+					<form method="post" action="<?php echo $akcja; ?>" data-nc-formularz>
 						<input type="hidden" name="action" value="nerti_cookies_zapisz">
 						<?php wp_nonce_field( 'nerti_cookies_zapisz' ); ?>
 
@@ -525,7 +532,10 @@ class Nerti_Cookies_Ustawienia {
 		<ul><li>Administrator: <?php echo empty($u['administrator']) ? 'DO UZUPEŁNIENIA' : esc_html($u['administrator']); ?></li>
 		<li>Polityka prywatności: <?php echo empty($u['link_polityka']) ? 'BRAK ADRESU' : esc_html($u['link_polityka']); ?></li>
 		<li>Hosting, czas przechowywania i odbiorcy: potwierdź z właścicielem.</li></ul>
-		<p>Adres dokumentu ustaw w zakładce Stan ochrony. Po zmianie treści podnieś wersję w Historii zgód. Wtyczka nie orzeka o zgodności prawnej.</p></section>
+		<p>Adres dokumentu ustaw w zakładce Ustawienia. Po zmianie treści użyj „Zapytaj wszystkich ponownie" na pulpicie. Wtyczka nie orzeka o zgodności prawnej.</p>
+		<h3>Lista ciasteczek do polityki</h3>
+		<p>Wklej <code>[nerti_cookies_lista]</code> na podstronie polityki cookies (w Oxygenie: element „Shortcode"). Tabela buduje się sama z ostatniego skanu: narzędzie, po co, ciasteczka z czasem przechowywania i kto dostaje dane. Pozycje nierozpoznane nie trafiają do tabeli, dopóki nie przypiszesz im kategorii.</p>
+		<p>Przycisk do zmiany zgody w stopce: <code>[nerti_cookies_ustawienia]</code> albo dowolny element z atrybutem <code>data-nc-akcja="otworz"</code>.</p></section>
 		<section id="nc-testy" class="nc-sekcja" data-nc-panel="testy"><h2>Inwentarz i testy</h2>
 		<p>Rejestr WP z tego żądania jest niepełny: nie dowodzi, co pobiera przeglądarka na konkretnej stronie. Poniżej zarejestrowane skrypty, nie lista odbiorców danych.</p>
 		<details><summary>Odczyt rejestru WordPressa</summary><pre><?php echo esc_html(wp_json_encode($inw, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre></details>
@@ -593,9 +603,16 @@ class Nerti_Cookies_Ustawienia {
 				</tr>
 				<tr>
 					<th>Wycofanie zgody</th>
-					<td><label><input type="radio" name="wycofanie" value="wtyczka" <?php checked( 'strona' !== $u['wycofanie'] ); ?>> wtyczka dokłada wejście na dole każdej podstrony</label><br>
+					<td><label><input type="radio" name="wycofanie" value="wtyczka" <?php checked( ! in_array( $u['wycofanie'], array( 'strona', 'plywajacy' ), true ) ); ?>> wtyczka dokłada wejście na dole każdej podstrony</label><br>
+					<label><input type="radio" name="wycofanie" value="plywajacy" <?php checked( 'plywajacy' === $u['wycofanie'] ); ?>> mały przycisk w rogu ekranu, widoczny po podjęciu decyzji</label><br>
 					<label><input type="radio" name="wycofanie" value="strona" <?php checked( 'strona' === $u['wycofanie'] ); ?>> wejście jest w projekcie strony (element z <code>data-nc-akcja="otworz"</code>)</label>
 					<p class="description">Zgodę trzeba dać się wycofać tak samo łatwo, jak się jej udzieliło. Drugą opcję wybierz dopiero wtedy, gdy takie wejście na stronie NAPRAWDĘ jest — inaczej zostaje baner bez wyjścia.</p></td>
+				</tr>
+				<tr>
+					<th>Google Consent Mode</th>
+					<td><label><input type="checkbox" name="cm_redakcja" value="1" <?php checked( ! empty( $u['cm_redakcja'] ) ); ?>> bez zgody reklamowej Google usuwa identyfikatory kliknięć z reklam</label><br>
+					<label><input type="checkbox" name="cm_url_passthrough" value="1" <?php checked( ! empty( $u['cm_url_passthrough'] ) ); ?>> przekazuj dane kampanii w adresach zamiast w ciasteczkach</label>
+					<p class="description">Drugie zmienia adresy linków na stronie (dopisuje parametry kampanii). Włącz, jeśli prowadzicie kampanie Google Ads i marketer o to prosi.</p></td>
 				</tr>
 				<tr>
 					<th>Blokada przez bufor wyjścia</th>
@@ -841,7 +858,9 @@ class Nerti_Cookies_Ustawienia {
 				'link_cookies'  => isset( $_POST['link_cookies'] ) ? esc_url_raw( wp_unslash( $_POST['link_cookies'] ) ) : '',
 				'waznosc_dni'   => isset( $_POST['waznosc_dni'] ) ? max( 1, min( 365, (int) $_POST['waznosc_dni'] ) ) : 182,
 				'bufor_wyjscia' => isset( $_POST['bufor_wyjscia'] ),
-				'wycofanie'     => isset( $_POST['wycofanie'] ) && 'strona' === $_POST['wycofanie'] ? 'strona' : 'wtyczka',
+				'cm_redakcja'   => isset( $_POST['cm_redakcja'] ),
+				'cm_url_passthrough' => isset( $_POST['cm_url_passthrough'] ),
+				'wycofanie'     => isset( $_POST['wycofanie'] ) && in_array( $_POST['wycofanie'], array( 'strona', 'plywajacy' ), true ) ? sanitize_key( $_POST['wycofanie'] ) : 'wtyczka',
 			);
 
 			// Teksty: przez sanitize_text_field, bo trafiają do znacznika banera.

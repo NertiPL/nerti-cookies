@@ -78,6 +78,16 @@ class Nerti_Cookies_Rejestr {
 	 * @return WP_REST_Response
 	 */
 	public static function rest_zapisz( $req ) {
+		// Limit: 20 zapisów na minutę z jednego adresu. Trasa jest publiczna (zgody udziela
+		// niezalogowany gość), więc bez limitu każdy mógłby zasypać rejestr fałszywymi wpisami
+		// i zamienić dowód w szum. Liczymy po skrócie IP, nie po samym IP.
+		$klucz = 'nc_limit_' . self::odcisk();
+		$ile   = (int) get_transient( $klucz );
+		if ( $ile >= 20 ) {
+			return new WP_REST_Response( array( 'ok' => false, 'blad' => 'limit' ), 429 );
+		}
+		set_transient( $klucz, $ile + 1, MINUTE_IN_SECONDS );
+
 		$u          = Nerti_Cookies_Ustawienia::pobierz();
 		$dozwolone  = array_keys( $u['kategorie'] );
 		$kategorie  = (array) $req->get_param( 'kategorie' );
@@ -158,6 +168,13 @@ class Nerti_Cookies_Rejestr {
 	}
 
 	/**
+	 * Warunek SQL „to była odmowa": zapisane kategorie to nic albo same niezbędne.
+	 * Odmowa to nie tylko przycisk „Odrzucam" — „Zapisz mój wybór" bez zaznaczonej kategorii
+	 * też nią jest, a liczona jako „wybór" zaniżała liczbę odmów na pulpicie.
+	 */
+	const SQL_ODMOWA = "(kategorie = '' OR kategorie = 'niezbedne')";
+
+	/**
 	 * @return array {
 	 *     @type int $razem
 	 *     @type int $odmowy
@@ -170,7 +187,7 @@ class Nerti_Cookies_Rejestr {
 
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
 		$razem    = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$tabela}" );
-		$odmowy   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$tabela} WHERE akcja = 'odrzuc'" );
+		$odmowy   = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$tabela} WHERE " . self::SQL_ODMOWA );
 		$ostatnia = (string) $wpdb->get_var( "SELECT utworzono FROM {$tabela} ORDER BY id DESC LIMIT 1" );
 		// phpcs:enable
 
@@ -179,6 +196,84 @@ class Nerti_Cookies_Rejestr {
 			'odmowy'   => $odmowy,
 			'ostatnia' => $ostatnia ? $ostatnia : '',
 		);
+	}
+
+	/**
+	 * Liczby z ostatnich dni — dla pulpitu. Trzy koszyki, które klient rozumie:
+	 * zgoda na wszystko, odmowa, zgoda częściowa.
+	 *
+	 * @param int $dni Okres.
+	 * @return array{dni:int,razem:int,wszystko:int,odmowy:int,czesciowe:int,procent_odmow:int}
+	 */
+	public static function statystyki_okres( $dni = 30 ) {
+		global $wpdb;
+		$tabela = self::tabela();
+		$od     = gmdate( 'Y-m-d H:i:s', time() - (int) $dni * DAY_IN_SECONDS );
+		$u      = Nerti_Cookies_Ustawienia::pobierz();
+		$wszyst = array();
+		foreach ( $u['kategorie'] as $id => $kat ) {
+			if ( empty( $kat['ukryta'] ) ) {
+				$wszyst[] = $id;
+			}
+		}
+		// phpcs:disable WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+		$razem    = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$tabela} WHERE utworzono >= %s", $od ) );
+		$odmowy   = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$tabela} WHERE utworzono >= %s AND " . self::SQL_ODMOWA, $od ) );
+		$wszystko = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$tabela} WHERE utworzono >= %s AND (akcja = 'akceptuj' OR kategorie = %s)", $od, implode( ',', $wszyst ) ) );
+		// phpcs:enable
+		return array(
+			'dni'           => (int) $dni,
+			'razem'         => $razem,
+			'wszystko'      => $wszystko,
+			'odmowy'        => $odmowy,
+			'czesciowe'     => max( 0, $razem - $wszystko - $odmowy ),
+			'procent_odmow' => $razem ? (int) round( 100 * $odmowy / $razem ) : 0,
+		);
+	}
+
+	/**
+	 * Wiersze rejestru do eksportu — wspólne dla pliku CSV z panelu i ability `eksport-rejestru`.
+	 *
+	 * @param string $od    Data „od" (Y-m-d) albo ''.
+	 * @param int    $limit Maksymalna liczba wierszy, 0 = wszystkie.
+	 * @return array<int,array>
+	 */
+	public static function wiersze( $od = '', $limit = 0 ) {
+		global $wpdb;
+		$tabela = self::tabela();
+		$sql    = "SELECT id, zgoda_id, utworzono, wersja_polityki, wersja_banera, akcja, kategorie, odcisk, przegladarka, adres FROM {$tabela}";
+		if ( '' !== $od ) {
+			$sql .= $wpdb->prepare( ' WHERE utworzono >= %s', $od . ' 00:00:00' );
+		}
+		$sql .= ' ORDER BY id ASC';
+		if ( $limit > 0 ) {
+			$sql .= $wpdb->prepare( ' LIMIT %d', $limit );
+		}
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
+		$wiersze = $wpdb->get_results( $sql, ARRAY_A );
+		return is_array( $wiersze ) ? $wiersze : array();
+	}
+
+	/**
+	 * Nagłówek CSV — jedna definicja dla panelu i MCP.
+	 */
+	const KOLUMNY_CSV = array( 'id', 'zgoda_id', 'utworzono_utc', 'wersja_polityki', 'wersja_banera', 'akcja', 'kategorie', 'odcisk', 'przegladarka', 'adres' );
+
+	/**
+	 * @param array $wiersze Wiersze.
+	 * @return string CSV z BOM, żeby Excel otworzył polskie znaki bez kreatora importu.
+	 */
+	public static function do_csv( array $wiersze ) {
+		$f = fopen( 'php://temp', 'w+' );
+		fwrite( $f, "\xEF\xBB\xBF" );
+		fputcsv( $f, self::KOLUMNY_CSV, ';' );
+		foreach ( $wiersze as $w ) {
+			fputcsv( $f, array_values( $w ), ';' );
+		}
+		rewind( $f );
+		$csv = (string) stream_get_contents( $f );
+		fclose( $f );
+		return $csv;
 	}
 
 	/**
@@ -191,23 +286,12 @@ class Nerti_Cookies_Rejestr {
 		}
 		check_admin_referer( 'nerti_cookies_eksport' );
 
-		global $wpdb;
-		$tabela = self::tabela();
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL
-		$wiersze = $wpdb->get_results( "SELECT * FROM {$tabela} ORDER BY id ASC", ARRAY_A );
+		$csv = self::do_csv( self::wiersze() );
 
 		nocache_headers();
 		header( 'Content-Type: text/csv; charset=utf-8' );
 		header( 'Content-Disposition: attachment; filename=zgody-' . gmdate( 'Y-m-d' ) . '.csv' );
-
-		$out = fopen( 'php://output', 'w' );
-		fputcsv( $out, array( 'id', 'zgoda_id', 'utworzono_utc', 'wersja_polityki', 'wersja_banera', 'akcja', 'kategorie', 'odcisk', 'przegladarka', 'adres' ) );
-		if ( is_array( $wiersze ) ) {
-			foreach ( $wiersze as $w ) {
-				fputcsv( $out, array_values( $w ) );
-			}
-		}
-		fclose( $out );
+		echo $csv; // phpcs:ignore WordPress.Security.EscapeOutput
 		exit;
 	}
 }

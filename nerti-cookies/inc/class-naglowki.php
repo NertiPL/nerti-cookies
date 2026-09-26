@@ -51,7 +51,9 @@ class Nerti_Cookies_Naglowki {
 		 * w której nagłówki na pewno jeszcze nie wyszły dla stron z bufora blokady.
 		 */
 		add_action( 'nerti_cookies_przed_wyslaniem', array( __CLASS__, 'filtruj' ) );
-		add_action( 'shutdown', array( __CLASS__, 'zapisz_slad' ), 0 );
+		// Po wp_ob_end_flush_all (shutdown, priorytet 1): dopiero przy tym opróżnieniu buforów
+		// PHP wysyła nagłówki i woła filtruj(). Wcześniej lista usuniętych jest jeszcze pusta.
+		add_action( 'shutdown', array( __CLASS__, 'zapisz_slad' ), 1000 );
 	}
 
 	/**

@@ -369,6 +369,61 @@
 		}
 	} );
 
+	/* ---------- tryb skanu (ramka na ekranie skanera w panelu) ---------- */
+
+	/*
+	 * Włącza się tylko wtedy, gdy stronę osadził ekran skanera z panelu TEJ SAMEJ domeny.
+	 * Odczyt `parent.location` z innej domeny rzuca wyjątek, a zwykły odwiedzający nie ma
+	 * ekranu `#nc-skaner` — więc nikt z zewnątrz nie włączy sobie „pełnej zgody bez zapisu".
+	 * Nic nie trafia do ciasteczka decyzji ani do rejestru; po zebraniu wyników przywracamy
+	 * prawdziwą decyzję administratora i kasujemy to, na co się nie zgodził.
+	 */
+	function trybSkanu() {
+		try {
+			return window.parent !== window && window.parent.location.origin === location.origin &&
+				window.parent.location.pathname.indexOf( '/wp-admin/' ) !== -1 && !! window.parent.document.getElementById( 'nc-skaner' );
+		} catch ( e ) {
+			return false;
+		}
+	}
+
+	if ( trybSkanu() ) {
+		var prawdziwa = czytaj();
+		zastosuj( zestaw( true ), 'skan', false );
+		setTimeout( function () {
+			var hosty = [];
+			// Pasek administratora (awatar z Gravatara) jest tylko w sesji skanującego, nie u gościa.
+			var zPaska = {};
+			Array.prototype.forEach.call( document.querySelectorAll( '#wpadminbar img[src]' ), function ( img ) {
+				try { zPaska[ new URL( img.src ).hostname ] = true; } catch ( e ) { /* pomijamy */ }
+			} );
+			Array.prototype.forEach.call( document.querySelectorAll( 'img[src]:not(#wpadminbar img)' ), function ( img ) {
+				try { delete zPaska[ new URL( img.src ).hostname ]; } catch ( e ) { /* pomijamy */ }
+			} );
+			try {
+				performance.getEntriesByType( 'resource' ).forEach( function ( r ) {
+					var h = new URL( r.name ).hostname;
+					if ( h && h !== location.hostname && ! zPaska[ h ] && hosty.indexOf( h ) === -1 ) { hosty.push( h ); }
+				} );
+			} catch ( e ) { /* stara przeglądarka */ }
+			var klucze = function ( typ ) { try { return Object.keys( window[ typ ] ); } catch ( e ) { return []; } };
+			window.parent.postMessage( {
+				ncSkan: true,
+				adres: location.href,
+				ciasteczka: document.cookie.split( ';' ).map( function ( c ) { return c.split( '=' )[ 0 ].trim(); } ).filter( Boolean ),
+				storage: klucze( 'localStorage' ).concat( klucze( 'sessionStorage' ) ),
+				hosty: hosty
+			}, location.origin );
+			// Sprzątanie: prawdziwa decyzja administratora wraca, reszta znika.
+			var kat = prawdziwa && prawdziwa.kat ? prawdziwa.kat : zestaw( false );
+			var doKasacji = [];
+			K.kategorie.forEach( function ( c ) { if ( ! c.wymagana && ! kat[ c.id ] ) { doKasacji = doKasacji.concat( c.ciasteczka || [] ); } } );
+			kasujCiasteczka( doKasacji );
+			integracje( kat );
+		}, 6000 );
+		return;
+	}
+
 	/* ---------- start ---------- */
 
 	var stanStartowy = czytaj();

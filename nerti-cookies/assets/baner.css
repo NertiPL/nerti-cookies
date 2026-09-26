@@ -426,3 +426,72 @@
 		transition: none;
 	}
 }
+
+/*
+ * Pływający przycisk zmiany zgody (ustawienie „wycofanie" = plywajacy). Opcja, nie domyślne:
+ * patrz komentarz przy .nc-wycofaj-pas. Pokazuje się dopiero PO decyzji — wcześniej wejściem
+ * jest sam baner — i chowa się, gdy baner jest otwarty.
+ */
+.nc-plywajacy {
+	position: fixed;
+	left: var(--nc-plywajacy-x, 1rem);
+	bottom: var(--nc-plywajacy-y, 1rem);
+	z-index: calc(var(--nc-z, 99999) - 1);
+	min-height: 44px;
+	padding: .5rem .875rem;
+	font: inherit;
+	font-family: var(--nc-font, inherit);
+	font-size: var(--nc-fs-sm, .875rem);
+	color: var(--nc-text, #111);
+	background: var(--nc-bg, #fff);
+	border: 1px solid var(--nc-border, currentColor);
+	border-radius: var(--nc-radius, 0);
+	cursor: pointer;
+	box-shadow: 0 2px 8px rgb(0 0 0 / .12);
+}
+
+.nc-plywajacy:focus-visible {
+	outline: 3px solid var(--nc-focus, #1f5fa8);
+	outline-offset: 2px;
+}
+
+html[data-nc="pytanie"] .nc-plywajacy,
+.nc-baner:not([hidden]) ~ .nc-plywajacy {
+	display: none;
+}
+
+@media print {
+	.nc-plywajacy { display: none; }
+}
+
+/* Lista ciasteczek do polityki — [nerti_cookies_lista]. Kolory i krój dziedziczy ze strony. */
+.nc-lista__tabela {
+	width: 100%;
+	border-collapse: collapse;
+	margin: 0 0 1.5em;
+	font-size: .9375em;
+}
+
+.nc-lista__tabela th,
+.nc-lista__tabela td {
+	padding: .5em .75em;
+	text-align: start;
+	vertical-align: top;
+	border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+
+.nc-lista__tabela code {
+	font-size: .875em;
+	word-break: break-all;
+}
+
+@media (max-width: 48rem) {
+	.nc-lista__tabela thead { display: none; }
+	.nc-lista__tabela tr { display: block; padding: .5em 0; border-bottom: 1px solid color-mix(in srgb, currentColor 20%, transparent); }
+	.nc-lista__tabela td { display: block; border: 0; padding: .25em 0; }
+}
+
+.nc-lista__admin {
+	padding: .75em 1em;
+	border: 1px dashed currentColor;
+}

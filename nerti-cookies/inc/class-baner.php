@@ -211,7 +211,13 @@ class Nerti_Cookies_Baner {
 		if ( ! Nerti_Cookies_Blokada::czy_dziala() ) {
 			return;
 		}
-		if ( 'strona' === Nerti_Cookies_Ustawienia::pole( 'wycofanie', 'wtyczka' ) ) {
+		$tryb = Nerti_Cookies_Ustawienia::pole( 'wycofanie', 'wtyczka' );
+		if ( 'strona' === $tryb ) {
+			return;
+		}
+		if ( 'plywajacy' === $tryb ) {
+			// Tuż za banerem, w tym samym rodzicu — CSS chowa przycisk, gdy baner jest otwarty.
+			echo self::shortcode( array( 'klasa' => 'nc-plywajacy' ) ); // phpcs:ignore WordPress.Security.EscapeOutput
 			return;
 		}
 		echo '<div class="nc-wycofaj-pas">' . self::shortcode( array( 'klasa' => 'nc-wycofaj' ) ) . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput

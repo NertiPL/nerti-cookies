@@ -210,7 +210,7 @@ class Nerti_Cookies_Uslugi {
 				'zawsze'     => true,
 				'cel'        => 'Zapamiętuje, na które ciasteczka się zgodziłeś, żeby nie pytać przy każdej podstronie.',
 				'odbiorca'   => 'Nikt — ciasteczko zostaje w przeglądarce, decyzja w rejestrze zgód strony',
-				'ciasteczka' => array( NERTI_COOKIES_CIASTECZKO => '6 miesięcy', 'wp_consent_*' => '6 miesięcy', 'wc_facebook_signals_state' => '1 rok' ),
+				'ciasteczka' => array( NERTI_COOKIES_CIASTECZKO => '6 miesięcy', 'wp_consent_*' => '30 dni', 'wc_facebook_signals_state' => '1 rok' ),
 			),
 			'wordpress' => array(
 				'nazwa'      => 'WordPress',
@@ -219,6 +219,7 @@ class Nerti_Cookies_Uslugi {
 				'cel'        => 'Logowanie do panelu i zapamiętanie ustawień zalogowanego użytkownika.',
 				'odbiorca'   => 'Nikt — dane zostają na serwerze strony',
 				'ciasteczka' => array( 'wordpress_*' => 'sesja lub 14 dni', 'wordpress_logged_in_*' => 'sesja lub 14 dni', 'wp-settings-*' => '1 rok', 'wordpress_test_cookie' => 'sesja', 'PHPSESSID' => 'sesja', 'comment_author_*' => '1 rok' ),
+				'storage'    => array( 'wpEmojiSettingsSupports', 'wp-autosave-*' ),
 			),
 			'woocommerce' => array(
 				'nazwa'      => 'WooCommerce — koszyk',

@@ -282,6 +282,57 @@ class Nerti_Cookies_Abilities {
 				'wykonaj'  => array( __CLASS__, 'op_dokumenty' ),
 			),
 
+			'skanuj-strone' => array(
+				'etykieta' => 'Skanuj stronę',
+				'opis'     => 'Pobiera podstrony tak jak nowy odwiedzający (bez ciasteczek, przez cache) i zwraca, co na nich jest: skrypty, osadzenia, piksele i ciasteczka z nagłówków serwera — każda pozycja z nazwą narzędzia, kategorią i statusem: blokowane (czeka na zgodę), zawsze (niezbędne), BLAD (śledzi przed zgodą — bloker Q-COOKIE), nieznane (do rozstrzygnięcia). Ciasteczek ustawianych przez JavaScript ta operacja NIE widzi: to robi skan z panelu (Ciasteczka → Skanuj stronę), który dopisuje je do tego samego wyniku. Wynik zapisuje się i zasila shortcode [nerti_cookies_lista].',
+				'wejscie'  => array(
+					'type'       => 'object',
+					'properties' => array(
+						'adresy'  => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Podstrony tej witryny. Puste = strona główna, dokumenty, 8 stron, 2 wpisy, sklep.' ),
+						'zapisany' => array( 'type' => 'boolean', 'description' => 'true = zwróć ostatni zapisany wynik bez skanowania.' ),
+						'tylko_lista' => array( 'type' => 'boolean', 'description' => 'true = zwróć tylko listę podstron, które skaner by sprawdził.' ),
+						'dopisz'   => array( 'type' => 'boolean', 'description' => 'true = dopisz podane adresy do świeżego wyniku (skan podstrona po podstronie).' ),
+					),
+				),
+				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => false, 'idempotent' => true, 'destructive' => false ),
+				'wykonaj'  => array( __CLASS__, 'op_skanuj' ),
+			),
+
+			'lista-uslug' => array(
+				'etykieta' => 'Lista znanych usług',
+				'opis'     => 'Biblioteka usług, które wtyczka rozpoznaje sama: nazwa, kategoria, czy jest blokowana do zgody, po co jest (po polsku, do polityki), kto otrzymuje dane, ciasteczka z czasem życia i wzorce, po których ją rozpoznaje. Cloudflare Turnstile jest niezbędny i nigdy nie jest blokowany. Czas i odbiorca to wartości z dokumentacji dostawców — do potwierdzenia przed publikacją polityki.',
+				'wejscie'  => array( 'type' => 'object', 'properties' => new stdClass() ),
+				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => true, 'idempotent' => true, 'destructive' => false ),
+				'wykonaj'  => array( __CLASS__, 'op_uslugi' ),
+			),
+
+			'eksport-rejestru' => array(
+				'etykieta' => 'Eksport rejestru zgód',
+				'opis'     => 'Zwraca rejestr zgód jako CSV (średnik, UTF-8 z BOM — otwiera się w Excelu) albo jako wiersze JSON. Rejestr nie zawiera adresów IP, tylko ich skrót z solą instalacji. Używane, gdy ktoś kwestionuje zgodę albo do audytu.',
+				'wejscie'  => array(
+					'type'       => 'object',
+					'properties' => array(
+						'od'     => array( 'type' => 'string', 'description' => 'Data RRRR-MM-DD, od której eksportować. Puste = cały rejestr.' ),
+						'limit'  => array( 'type' => 'integer', 'minimum' => 0, 'maximum' => 50000, 'description' => '0 = bez limitu.' ),
+						'format' => array( 'type' => 'string', 'enum' => array( 'csv', 'json' ) ),
+					),
+				),
+				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => true, 'idempotent' => true, 'destructive' => false ),
+				'wykonaj'  => array( __CLASS__, 'op_eksport' ),
+			),
+
+			'status' => array(
+				'etykieta' => 'Stan ochrony',
+				'opis'     => 'To samo, co klient widzi na pulpicie: lista kontroli (czy baner jest na każdej podstronie, czy coś śledzi przed zgodą, czy są pozycje nierozpoznane, czy jest wejście do zmiany zgody, adres polityki), podsumowanie ostatniego skanu, decyzje z 30 dni, ciasteczka zatrzymane na serwerze, wykryte integracje i wtyczki cache. Werdykt: ok / uwagi / naprawa.',
+				'wejscie'  => array( 'type' => 'object', 'properties' => new stdClass() ),
+				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => true, 'idempotent' => true, 'destructive' => false ),
+				'wykonaj'  => array( __CLASS__, 'op_status' ),
+			),
+
 			'inwentarz-skryptow' => array(
 				'etykieta' => 'Inwentarz skryptów zewnętrznych',
 				'opis'     => 'Zwraca listę uchwytów skryptów zarejestrowanych w WordPressie wraz z ich adresami i przypisaną kategorią. To jest wejście do polityki cookies generowanej z faktycznego stanu strony, nie z szablonu.',
@@ -357,6 +408,68 @@ class Nerti_Cookies_Abilities {
 	public static function op_statystyki( $args = array() ) {
 		unset( $args );
 		return Nerti_Cookies_Rejestr::statystyki();
+	}
+
+	public static function op_skanuj( $args = array() ) {
+		$args = is_array( $args ) ? $args : array();
+		if ( ! empty( $args['tylko_lista'] ) ) {
+			return array( 'adresy' => Nerti_Cookies_Skaner::adresy() );
+		}
+		if ( ! empty( $args['zapisany'] ) ) {
+			$w = Nerti_Cookies_Skaner::wynik();
+		} else {
+			$adresy = array_values( array_filter( array_map( 'esc_url_raw', (array) ( $args['adresy'] ?? array() ) ) ) );
+			$w      = Nerti_Cookies_Skaner::skanuj( $adresy, ! empty( $args['dopisz'] ) );
+		}
+		return array(
+			'adresy'        => array_values( (array) ( $w['adresy'] ?? array() ) ),
+			'podsumowanie'  => Nerti_Cookies_Skaner::podsumowanie(),
+			'strony'        => (object) ( $w['strony'] ?? array() ),
+			'pozycje'       => array_values( (array) ( $w['pozycje'] ?? array() ) ),
+			'nota'          => 'Skan serwerowy nie widzi ciasteczek ustawianych przez JavaScript. Pełny skan: panel → Ciasteczka → Skanuj stronę (dopisuje wynik z przeglądarki). Status BLAD = bloker Q-COOKIE.',
+		);
+	}
+
+	public static function op_uslugi( $args = array() ) {
+		unset( $args );
+		return array( 'uslugi' => Nerti_Cookies_Uslugi::lista() );
+	}
+
+	public static function op_eksport( $args = array() ) {
+		$args = is_array( $args ) ? $args : array();
+		$od   = isset( $args['od'] ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', (string) $args['od'] ) ? (string) $args['od'] : '';
+		$rows = Nerti_Cookies_Rejestr::wiersze( $od, isset( $args['limit'] ) ? (int) $args['limit'] : 0 );
+		if ( isset( $args['format'] ) && 'json' === $args['format'] ) {
+			return array( 'ile' => count( $rows ), 'kolumny' => Nerti_Cookies_Rejestr::KOLUMNY_CSV, 'wiersze' => $rows );
+		}
+		return array( 'ile' => count( $rows ), 'plik' => 'zgody-' . gmdate( 'Y-m-d' ) . '.csv', 'csv' => Nerti_Cookies_Rejestr::do_csv( $rows ) );
+	}
+
+	public static function op_status( $args = array() ) {
+		unset( $args );
+		$kontrole = array();
+		$bledy    = 0;
+		$uwagi    = 0;
+		foreach ( Nerti_Cookies_Pulpit::kontrole() as $k ) {
+			$kontrole[] = array( 'ok' => (bool) $k[0], 'waga' => $k[1], 'tekst' => $k[2] );
+			if ( ! $k[0] ) {
+				'blad' === $k[1] ? $bledy++ : $uwagi++;
+			}
+		}
+		$u = Nerti_Cookies_Ustawienia::pobierz();
+		return array(
+			'werdykt'       => $bledy ? 'naprawa' : ( $uwagi ? 'uwagi' : 'ok' ),
+			'kontrole'      => $kontrole,
+			'skan'          => Nerti_Cookies_Skaner::podsumowanie(),
+			'zgody_30_dni'  => Nerti_Cookies_Rejestr::statystyki_okres( 30 ),
+			'zgody_razem'   => Nerti_Cookies_Rejestr::statystyki(),
+			'zatrzymane_na_serwerze' => (object) Nerti_Cookies_Naglowki::slad(),
+			'integracje'    => Nerti_Cookies_Integracje::wykryte(),
+			'cache'         => Nerti_Cookies_Cache::wykryte(),
+			'wersja_polityki' => (string) $u['wersja_polityki'],
+			'wersja_wtyczki'  => NERTI_COOKIES_WERSJA,
+			'kreator_ukonczony' => (bool) get_option( 'nerti_cookies_kreator', false ),
+		);
 	}
 
 	public static function op_inwentarz( $args = array() ) {
