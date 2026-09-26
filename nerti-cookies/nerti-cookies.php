@@ -56,6 +56,7 @@ require_once NERTI_COOKIES_KAT . 'inc/class-cache.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-skaner.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-lista.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-pulpit.php';
+require_once NERTI_COOKIES_KAT . 'inc/class-kreator.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-baner.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-rejestr.php';
 require_once NERTI_COOKIES_KAT . 'inc/class-abilities.php';
@@ -84,6 +85,7 @@ function nerti_cookies_start() {
 	Nerti_Cookies_Skaner::hooks();
 	Nerti_Cookies_Lista::hooks();
 	Nerti_Cookies_Pulpit::hooks();
+	Nerti_Cookies_Kreator::hooks();
 	Nerti_Cookies_Baner::hooks();
 	Nerti_Cookies_Rejestr::hooks();
 	Nerti_Cookies_Abilities::hooks();

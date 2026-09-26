@@ -288,3 +288,68 @@
 	height: 800px;
 	border: 0;
 }
+
+/* ---------- Kreator ---------- */
+
+.nc-kreator__kroki {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px 24px;
+	margin: 16px 0;
+	list-style: none;
+	counter-reset: none;
+}
+
+.nc-kreator__kroki li {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	color: #50575e;
+}
+
+.nc-kreator__kroki li span {
+	display: inline-grid;
+	place-items: center;
+	width: 28px;
+	height: 28px;
+	border: 1px solid currentColor;
+	font-weight: 600;
+}
+
+.nc-kreator__kroki .is-aktywny {
+	color: #1d2327;
+	font-weight: 600;
+}
+
+.nc-kreator__kroki .is-aktywny span {
+	background: #2271b1;
+	border-color: #2271b1;
+	color: #fff;
+}
+
+.nc-kreator__kroki .is-zrobiony {
+	color: #00701a;
+}
+
+.nc-kreator__tresc {
+	max-width: 960px;
+}
+
+.nc-kreator__nawigacja {
+	display: flex;
+	gap: 8px;
+	margin-top: 24px;
+}
+
+.nc-kreator__podglad {
+	position: relative;
+	max-width: 46rem;
+	margin: 16px 0;
+}
+
+.nc-kreator__uwaga {
+	padding: 12px 16px;
+	border-left: 4px solid #dba617;
+	background: #fcf9e8;
+}
