@@ -192,8 +192,35 @@
 			ad_storage: kat.marketingowe ? 'granted' : 'denied',
 			ad_user_data: kat.marketingowe ? 'granted' : 'denied',
 			ad_personalization: kat.marketingowe ? 'granted' : 'denied',
+			personalization_storage: kat.marketingowe ? 'granted' : 'denied',
 			analytics_storage: kat.analityczne ? 'granted' : 'denied'
 		} );
+	}
+
+	/*
+	 * Przekazanie decyzji wtyczkom, które same czekają na zgodę.
+	 * WP Consent API: pięć kategorii API na nasze trzy (mapa jak w class-integracje.php).
+	 * Meta Pixel for WordPress: publiczne API `fbwcsignal` — wołane tylko przy zmianie stanu,
+	 * bo każde wywołanie to żądanie AJAX.
+	 */
+	var MAPA_WP_CONSENT = { functional: 'niezbedne', statistics: 'analityczne', 'statistics-anonymous': 'analityczne', marketing: 'marketingowe', preferences: 'marketingowe' };
+
+	function integracje( kat ) {
+		if ( typeof window.wp_set_consent === 'function' ) {
+			window.wp_consent_type = 'optin';
+			Object.keys( MAPA_WP_CONSENT ).forEach( function ( c ) {
+				var nasza = MAPA_WP_CONSENT[ c ];
+				try { window.wp_set_consent( c, ( nasza === 'niezbedne' || kat[ nasza ] ) ? 'allow' : 'deny' ); } catch ( e ) { /* cudzy błąd nie zatrzymuje banera */ }
+			} );
+		}
+		var fb = window.fbwcsignal;
+		if ( fb && typeof fb.getState === 'function' ) {
+			try {
+				var stan = fb.getState();
+				if ( kat.marketingowe && stan !== 'active' ) { fb.release(); }
+				if ( ! kat.marketingowe && stan === 'active' ) { fb.hold(); }
+			} catch ( e ) { /* jw. */ }
+		}
 	}
 
 	function zastosuj( kat, akcja, zapisz ) {
@@ -221,6 +248,7 @@
 
 		kasujStorage(storageDoKasacji);
 		consentMode( kat );
+		integracje( kat );
 		if (cofniecie && zapisz !== false) { location.reload(); return; }
 		odblokuj( kat );
 

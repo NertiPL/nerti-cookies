@@ -37,6 +37,10 @@ class Nerti_Cookies_Ustawienia {
 			'wersja_banera'    => NERTI_COOKIES_WERSJA,
 			'waznosc_dni'      => 182,
 			'consent_mode'     => true,
+			// Consent Mode: bez zgody reklamowej Google usuwa identyfikatory kliknięć z pingów.
+			'cm_redakcja'        => true,
+			// Przekazywanie gclid/dclid w adresach zamiast w ciasteczkach. Domyślnie wyłączone: zmienia adresy linków.
+			'cm_url_passthrough' => false,
 			'bufor_wyjscia'    => true,
 			'link_polityka'    => '',
 			'link_cookies'     => '',
@@ -233,7 +237,7 @@ class Nerti_Cookies_Ustawienia {
 		foreach (array('wzorce','osadzenia','uchwyty') as $mapa) foreach (($nowe[$mapa] ?? array()) as $w=>$kat) {
 			if ('' === (string)$w || !in_array($kat,array('niezbedne','analityczne','marketingowe'),true)) return new WP_Error('nc_pattern','Nieprawidłowy wzorzec lub kategoria.',array('status'=>400));
 		}
-		foreach (array('consent_mode','bufor_wyjscia') as $k) if (isset($nowe[$k]) && !is_bool($nowe[$k])) return new WP_Error('nc_config','Przełącznik musi być bool.',array('status'=>400));
+		foreach (array('consent_mode','bufor_wyjscia','cm_redakcja','cm_url_passthrough') as $k) if (isset($nowe[$k]) && !is_bool($nowe[$k])) return new WP_Error('nc_config','Przełącznik musi być bool.',array('status'=>400));
 		if (isset($nowe['wycofanie']) && !in_array($nowe['wycofanie'], array('wtyczka','strona'), true)) return new WP_Error('nc_config','Wycofanie: wtyczka albo strona.',array('status'=>400));
 		foreach (($nowe['teksty'] ?? array()) as $v) if (!is_string($v)) return new WP_Error('nc_config','Teksty muszą być ciągami znaków.',array('status'=>400));
 		$biezace = get_option( self::OPCJA, array() );

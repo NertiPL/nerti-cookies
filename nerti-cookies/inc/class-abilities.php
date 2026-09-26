@@ -172,6 +172,9 @@ class Nerti_Cookies_Abilities {
 						'uchwyty'       => array( 'type' => 'object' ),
 						'bufor_wyjscia' => array( 'type' => 'boolean' ),
 						'consent_mode'  => array( 'type' => 'boolean' ),
+						'cm_redakcja'   => array( 'type' => 'boolean', 'description' => 'Consent Mode: ads_data_redaction przy braku zgody reklamowej.' ),
+						'cm_url_passthrough' => array( 'type' => 'boolean', 'description' => 'Consent Mode: url_passthrough.' ),
+						'wycofanie'     => array( 'type' => 'string', 'enum' => array( 'wtyczka', 'plywajacy', 'strona' ) ),
 						'wyglad'        => array(
 							'type'        => 'object',
 							'description' => 'Układ banera, osobno dla telefonu i desktopu: {"desktop":{"pozycja":"dol|gora|srodek|lewy-dol|prawy-dol","szerokosc":46,"tekst":"auto|mniejszy|normalny|wiekszy"},"mobile":{...}}. Szerokość w rem, 16-100. Granica między urządzeniami to 48rem.',

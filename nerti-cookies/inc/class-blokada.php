@@ -97,16 +97,32 @@ class Nerti_Cookies_Blokada {
 		}
 		$u = Nerti_Cookies_Ustawienia::pobierz();
 
-		echo "<script id=\"nc-bootstrap\">\n";
+		// Atrybuty „nie ruszać" dla optymalizatorów: ten skrypt MUSI wykonać się pierwszy
+		// i od razu. Opóźniony przez „delay JS" przestaje być domyślnym `denied` — staje się
+		// spóźnioną deklaracją po tym, jak tag Google już wystrzelił.
+		echo "<script id=\"nc-bootstrap\" data-no-optimize=\"1\" data-no-defer=\"1\" data-noptimize=\"1\" data-cfasync=\"false\" nowprocket>\n";
 		echo "window.ncStan=(function(){try{var m=document.cookie.match(/(?:^|; )" . esc_js( NERTI_COOKIES_CIASTECZKO ) . "=([^;]*)/);";
-		echo "return m?JSON.parse(decodeURIComponent(m[1])):null;}catch(e){return null;}})();\n";
+		echo "var d=m?JSON.parse(decodeURIComponent(m[1])):null;return d&&String(d.w)===" . wp_json_encode( (string) $u['wersja_polityki'] ) . "?d:null;}catch(e){return null;}})();\n";
 		echo "document.documentElement.setAttribute('data-nc',window.ncStan?'decyzja':'pytanie');\n";
+		// WP Consent API: typ zgody znany od pierwszej linijki, zanim inne wtyczki zapytają.
+		echo "window.wp_consent_type='optin';\n";
 
 		if ( ! empty( $u['consent_mode'] ) ) {
-			$an = 'denied';
-			$mk = 'denied'; // HTML jest niezależny od cookies odwiedzającego (cache).
+			/*
+			 * HTML jest ten sam dla każdego (cache), więc domyślnie zawsze `denied`.
+			 * Decyzję powracającego gościa czytamy z ciasteczka W PRZEGLĄDARCE i od razu
+			 * wysyłamy `update` — jeszcze w <head>, zanim cokolwiek z Google się załaduje.
+			 */
 			echo "window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}\n";
-			echo "gtag('consent','default',{'ad_storage':'" . esc_js( $mk ) . "','ad_user_data':'" . esc_js( $mk ) . "','ad_personalization':'" . esc_js( $mk ) . "','analytics_storage':'" . esc_js( $an ) . "','functionality_storage':'granted','security_storage':'granted','wait_for_update':500});\n";
+			echo "gtag('consent','default',{'ad_storage':'denied','ad_user_data':'denied','ad_personalization':'denied','analytics_storage':'denied','functionality_storage':'granted','security_storage':'granted','personalization_storage':'denied','wait_for_update':500});\n";
+			if ( ! empty( $u['cm_redakcja'] ) ) {
+				echo "gtag('set','ads_data_redaction',true);\n";
+			}
+			if ( ! empty( $u['cm_url_passthrough'] ) ) {
+				echo "gtag('set','url_passthrough',true);\n";
+			}
+			echo "(function(s){if(!s||!s.kat)return;var a=s.kat.analityczne?'granted':'denied',r=s.kat.marketingowe?'granted':'denied';";
+			echo "gtag('consent','update',{'ad_storage':r,'ad_user_data':r,'ad_personalization':r,'personalization_storage':r,'analytics_storage':a});})(window.ncStan);\n";
 		}
 		echo "</script>\n";
 	}
