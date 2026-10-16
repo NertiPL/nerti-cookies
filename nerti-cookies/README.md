@@ -37,6 +37,26 @@ Trzy źródła, w tej kolejności — panel pokazuje, które jest aktywne:
 2. **Ustawienia globalne Oxygena** — paleta, kroje, rozmiar bazowy, promienie. Działa na dowolnej stronie na Oxygenie, bez pliku projektu.
 3. **Domyślne wtyczki** — neutralne, gdy nie ma ani jednego, ani drugiego.
 
+4. **Ręczne tokeny** (`ustaw-tokeny`, od 0.6.0) — pojedyncze zmienne `--nc-*`, wspólne albo osobno dla telefonu i desktopu. Do oddania banera 1:1 z projektem. Tokeny urządzeń przeżywają ponowny import, wspólne nie.
+
+### Tokeny kształtu (0.6.0)
+
+Wszystkie mają wartość zapasową równą wyglądowi sprzed 0.6.0, więc strona, która ich nie ustawia, nie zmienia się.
+
+| Token | Co zmienia |
+|---|---|
+| `--nc-baner-pad` | odstęp panelu od krawędzi ekranu (domyślnie `--nc-gap`) |
+| `--nc-border-w`, `--nc-panel-max-h` | grubość obrysu panelu, maksymalna wysokość |
+| `--nc-tytul-waga`, `--nc-tresc-fs`, `--nc-tresc-lh` | waga tytułu, rozmiar i interlinia treści |
+| `--nc-linki-fs`, `--nc-link-color`, `--nc-link-waga`, `--nc-link-offset`, `--nc-link-display`, `--nc-link-pad` | link do polityki w zdaniu: kolor, grubość, podkreślenie, cel dotyku bez zmiany wiersza |
+| `--nc-btn-font`, `--nc-btn-fs`, `--nc-btn-lh`, `--nc-btn-waga`, `--nc-btn-pad`, `--nc-btn-min-h`, `--nc-btn-border-w`, `--nc-btn-border` | przyciski równe: krój, rozmiar, padding, obrys |
+| `--nc-btn-bg-hover`, `--nc-btn-ink-hover`, `--nc-btn-border-hover` | jawny hover przycisków równych (z `--nc-btn-hover-filtr: none`) |
+| `--nc-btn-basis`, `--nc-btn-basis-mobile` | szerokość bazowa; `0` na telefonie = dwa przyciski obok siebie |
+| `--nc-akceptuj-order` | `-1` stawia „Akceptuję" przed „Odrzucam" na ekranie (czytnik dalej czyta odmowę pierwszą) |
+| `--nc-tekst-flex`, `--nc-tekst-color`, `--nc-tekst-fs`, `--nc-tekst-waga`, `--nc-tekst-offset`, `--nc-tekst-hover-grubosc` | przycisk tekstowy „Ustawienia" |
+| `--nc-zapisz-*` (`bg`, `ink`, `border`, `waga`, `flex`, `podkreslenie`, `bg-hover`, `ink-hover`, `border-hover`) | „Zapisz wybór" jako pełny przycisk |
+| `--nc-wejscie-czas`, `--nc-wejscie-opoznienie`, `--nc-wejscie-y`, `--nc-wejscie-ease` | wejście panelu; przy `prefers-reduced-motion` wyłączone |
+
 Import sprawdza kontrast. Jeśli para tekst/tło albo etykieta/przycisk schodzi poniżej 4,5:1, zgłasza to zamiast po cichu zrobić baner nie do przeczytania.
 
 Baner renderuje wtyczka, nie Oxygen — musi pokazać się przed zgodą, na każdej podstronie, także z cache'a i na stronie błędu. Z Oxygena bierzemy wygląd, nie mechanizm renderowania.
@@ -80,6 +100,7 @@ Wtyczka rejestruje się jako paczka abilities Agent Connector for WP. Uwierzytel
 | `nerti-cookies/zapisz-ustawienia` | zapis częściowy, scalany z bieżącym stanem |
 | `nerti-cookies/importuj-tokeny` | wygląd z `design-system.json` |
 | `nerti-cookies/importuj-z-oxygena` | wygląd z ustawień globalnych Oxygena |
+| `nerti-cookies/ustaw-tokeny` | pojedyncze tokeny `--nc-*`: `tokeny` (wspólne), `mobile`, `desktop`; `null` usuwa |
 | `nerti-cookies/podnies-wersje-polityki` | unieważnienie zgód po zmianie polityki |
 | `nerti-cookies/statystyki-zgod` | ile decyzji, ile odmów, ostatnia |
 | `nerti-cookies/inwentarz-skryptow` | jakie skrypty zewnętrzne faktycznie są na stronie |

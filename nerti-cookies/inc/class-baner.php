@@ -55,7 +55,8 @@ class Nerti_Cookies_Baner {
 	 */
 	public static function css_zmiennych() {
 		return Nerti_Cookies_Tokeny::css()
-			. Nerti_Cookies_Tokeny::css_wygladu( Nerti_Cookies_Ustawienia::pole( 'wyglad', array() ) );
+			. Nerti_Cookies_Tokeny::css_wygladu( Nerti_Cookies_Ustawienia::pole( 'wyglad', array() ) )
+			. Nerti_Cookies_Tokeny::css_urzadzen();
 	}
 
 	/**

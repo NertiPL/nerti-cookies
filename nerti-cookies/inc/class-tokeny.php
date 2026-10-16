@@ -31,6 +31,13 @@ class Nerti_Cookies_Tokeny {
 	 */
 	const OPCJA_ZRODLO = 'nerti_cookies_tokeny_zrodlo';
 
+	/**
+	 * Tokeny tylko dla telefonu albo tylko dla desktopu: {"mobile":{...},"desktop":{...}}.
+	 * Osobna opcja, bo import z design-system.json albo z Oxygena nadpisuje CAŁĄ opcję
+	 * OPCJA. Ręczne poprawki per urządzenie nie mają znikać przy ponownym imporcie.
+	 */
+	const OPCJA_URZADZENIA = 'nerti_cookies_tokeny_urzadzenia';
+
 	/** Minimalny stosunek kontrastu dla tekstu podstawowego (WCAG 2.1 AA). */
 	const KONTRAST_MIN = 4.5;
 
@@ -647,6 +654,125 @@ class Nerti_Cookies_Tokeny {
 			return '';
 		}
 		return ':root{' . implode( ';', $linie ) . '}';
+	}
+
+	/* ---------- Ręczne tokeny (ability ustaw-tokeny) ---------- */
+
+	/**
+	 * Scala pojedyncze tokeny z bieżącymi, zamiast podmieniać cały zestaw jak import.
+	 *
+	 * Po co: import z design-system.json zna kilkanaście zmiennych (kolory, kroje, odstępy).
+	 * Projekt oddawany 1:1 potrzebuje też kształtu: obrysu przycisków, ich kolejności,
+	 * linku w zdaniu, odstępu od krawędzi ekranu. Te wartości nie mają źródła w żadnym
+	 * pliku tokenów, więc przychodzą tędy, pojedynczo.
+	 *
+	 * Wartość null albo pusty string usuwa token (wraca wartość zapasowa z arkusza).
+	 *
+	 * @param array $wspolne    Mapa `--nc-*` => wartość dla wszystkich ekranów.
+	 * @param array $urzadzenia {"mobile":{...},"desktop":{...}}.
+	 * @return array
+	 */
+	public static function ustaw( array $wspolne, array $urzadzenia = array() ) {
+		$odrzucone = array();
+
+		$scal = static function ( array $obecne, array $zmiany ) use ( &$odrzucone ) {
+			foreach ( $zmiany as $zmienna => $wartosc ) {
+				if ( ! is_string( $zmienna ) || ! preg_match( '/^--nc-[a-z0-9-]+$/', $zmienna ) ) {
+					$odrzucone[] = (string) $zmienna;
+					continue;
+				}
+				if ( null === $wartosc || ( is_string( $wartosc ) && '' === trim( $wartosc ) ) ) {
+					unset( $obecne[ $zmienna ] );
+					continue;
+				}
+				if ( is_array( $wartosc ) || is_bool( $wartosc ) ) {
+					$odrzucone[] = $zmienna;
+					continue;
+				}
+				$czysta = self::oczysc( (string) $wartosc );
+				if ( '' === $czysta ) {
+					$odrzucone[] = $zmienna;
+					continue;
+				}
+				$obecne[ $zmienna ] = $czysta;
+			}
+			return $obecne;
+		};
+
+		$tokeny = $scal( self::pobierz(), $wspolne );
+
+		$per = self::pobierz_urzadzenia();
+		foreach ( array( 'mobile', 'desktop' ) as $u ) {
+			if ( isset( $urzadzenia[ $u ] ) && is_array( $urzadzenia[ $u ] ) ) {
+				$per[ $u ] = $scal( isset( $per[ $u ] ) ? $per[ $u ] : array(), $urzadzenia[ $u ] );
+			}
+		}
+
+		/*
+		 * Kontrast mierzymy na tym, co się wyświetli na danym ekranie: wspólne plus nadpisania
+		 * urządzenia. Tu tylko ostrzegamy, nie odrzucamy: to ręczna, świadoma zmiana,
+		 * a odrzucenie po cichu wyglądałoby jak zapis, który nie zadziałał.
+		 */
+		$ostrzezenia = array();
+		$pomiary     = array();
+		foreach ( array( 'mobile', 'desktop' ) as $u ) {
+			$k = self::sprawdz_kontrast( array_merge( $tokeny, isset( $per[ $u ] ) ? $per[ $u ] : array() ) );
+			foreach ( $k['ostrzezenia'] as $o ) {
+				$ostrzezenia[] = $u . ': ' . $o;
+			}
+			$pomiary[ $u ] = $k['pomiary'];
+		}
+
+		update_option( self::OPCJA, $tokeny, false );
+		update_option( self::OPCJA_URZADZENIA, $per, false );
+
+		return array(
+			'ok'          => true,
+			'tokeny'      => $tokeny,
+			'urzadzenia'  => $per,
+			'odrzucone'   => array_values( array_unique( $odrzucone ) ),
+			'ostrzezenia' => array_values( array_unique( $ostrzezenia ) ),
+			'pomiary'     => $pomiary,
+			'uwaga'       => 'Tokeny wspólne nadpisze kolejny import z design-system.json albo z Oxygena; tokeny urządzeń zostają.',
+		);
+	}
+
+	/**
+	 * @return array
+	 */
+	public static function pobierz_urzadzenia() {
+		$t = get_option( self::OPCJA_URZADZENIA, array() );
+		return is_array( $t ) ? $t : array();
+	}
+
+	/**
+	 * Bloki @media z tokenami urządzeń. Drukowane PO css_wygladu(), więc wygrywają
+	 * z układem z panelu, tak jak ręczna poprawka wygrywa z ustawieniem domyślnym.
+	 *
+	 * @return string
+	 */
+	public static function css_urzadzen() {
+		$per       = self::pobierz_urzadzenia();
+		$css       = '';
+		$zapytania = array(
+			'mobile'  => '@media (max-width:' . ( self::BREAKPOINT - 0.0625 ) . 'rem)',
+			'desktop' => '@media (min-width:' . self::BREAKPOINT . 'rem)',
+		);
+		foreach ( $zapytania as $u => $zapytanie ) {
+			if ( empty( $per[ $u ] ) || ! is_array( $per[ $u ] ) ) {
+				continue;
+			}
+			$linie = array();
+			foreach ( $per[ $u ] as $zmienna => $wartosc ) {
+				if ( preg_match( '/^--nc-[a-z0-9-]+$/', $zmienna ) ) {
+					$linie[] = $zmienna . ':' . $wartosc;
+				}
+			}
+			if ( $linie ) {
+				$css .= $zapytanie . '{:root{' . implode( ';', $linie ) . '}}';
+			}
+		}
+		return $css;
 	}
 
 	/* ---------- Układ: osobno telefon, osobno desktop ---------- */

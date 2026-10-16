@@ -2,6 +2,24 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.6.0 — 2026-10-16
+
+### Dodane
+
+- **Ability `nerti-cookies/ustaw-tokeny`.** Scala pojedyncze zmienne `--nc-*` z bieżącymi, wspólne albo osobno dla telefonu i desktopu (`tokeny`, `mobile`, `desktop`; `null` usuwa). Tokeny urządzeń siedzą w osobnej opcji `nerti_cookies_tokeny_urzadzenia` i przeżywają ponowny import. Kontrast jest mierzony per urządzenie i zgłaszany, nie odrzucany.
+- **Tokeny kształtu** w `baner.css` (lista w README): odstęp od krawędzi, obrys panelu, waga tytułu, treść, link w zdaniu, krój, padding, obrys i hover przycisków równych, kolejność „Akceptuję", przycisk „Ustawienia", „Zapisz wybór" jako pełny przycisk, wejście panelu z opóźnieniem.
+- `pobierz-ustawienia` zwraca też `tokeny_urzadzen`.
+
+### Dlaczego
+
+2026-10-16 na biznesoweadhd.pl baner miał wyglądać jak karta cookies z projektu. Bez tych tokenów jedyną drogą były selektory `#nc-baner …` w arkuszu strony, które przy aktualizacji wtyczki rozjeżdżają się bez ostrzeżenia, a klient nie zmieni ich z panelu. Odstęp od krawędzi był dodatkowo podwójny (padding kontenera wtyczki plus własny `inset` strony): panel na telefonie wychodził o 32 px węższy niż w projekcie.
+
+### Zgodność
+
+- Każdy nowy token ma wartość zapasową równą dotychczasowemu wyglądowi. Strony bez tokenów renderują się tak samo jak na 0.5.2, z dwoma wyjątkami, które mogą wyjść tylko przy agresywnym motywie:
+  - tytuł banera ma teraz jawnie `font-weight: bold` (wcześniej brał wagę `h2` z motywu),
+  - treść i link dziedziczą rozmiar i grubość z panelu (wcześniej motyw mógł je nadpisać regułą `p` albo `a`).
+
 ## 0.5.2 — 2026-10-16
 
 ### Naprawione

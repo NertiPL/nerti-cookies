@@ -201,6 +201,22 @@ class Nerti_Cookies_Abilities {
 				'wykonaj'  => array( __CLASS__, 'op_tokeny' ),
 			),
 
+			'ustaw-tokeny' => array(
+				'etykieta' => 'Ustaw pojedyncze tokeny wyglądu',
+				'opis'     => 'Scala pojedyncze zmienne --nc-* z bieżącymi: wspólne dla wszystkich ekranów albo osobno dla telefonu (mobile, poniżej 48rem) i desktopu. Null albo pusty string usuwa token. Służy do oddania banera 1:1 z projektem: obrys, kolejność i hover przycisków, link w zdaniu, odstęp od krawędzi, wejście. Lista zmiennych: README, sekcja Tokeny. Tokeny wspólne nadpisze kolejny import; tokeny urządzeń zostają. Kontrast mierzy i ostrzega, ale nie odrzuca.',
+				'wejscie'  => array(
+					'type'       => 'object',
+					'properties' => array(
+						'tokeny'  => array( 'type' => 'object', 'description' => 'Mapa "--nc-nazwa": "wartość" dla wszystkich ekranów.' ),
+						'mobile'  => array( 'type' => 'object', 'description' => 'Mapa tokenów tylko dla telefonu.' ),
+						'desktop' => array( 'type' => 'object', 'description' => 'Mapa tokenów tylko dla desktopu.' ),
+					),
+				),
+				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => false, 'idempotent' => true, 'destructive' => false ),
+				'wykonaj'  => array( __CLASS__, 'op_ustaw_tokeny' ),
+			),
+
 			'importuj-z-oxygena' => array(
 				'etykieta' => 'Wczytaj wygląd z ustawień globalnych Oxygena',
 				'opis'     => 'Drugie źródło wyglądu, na wypadek gdy projekt nie ma pliku design-system.json. Czyta ustawienia globalne Oxygena — kolory, kroje, rozmiar bazowy, promień i cień przycisku, czas przejścia — i przepisuje je na te same zmienne banera. Kolejność pierwszeństwa: design-system.json, potem Oxygen, potem wartości domyślne wtyczki. Po imporcie mierzy kontrast tekstu na tle panelu i napisu przycisku na przycisku; para poniżej 4,5:1 NIE zostaje zaimportowana i wraca w polu „ostrzezenia", bo baner, którego nie da się przeczytać, jest gorszy niż baner niepasujący do strony.',
@@ -352,6 +368,7 @@ class Nerti_Cookies_Abilities {
 		return array(
 			'ustawienia'       => $u,
 			'tokeny'           => Nerti_Cookies_Tokeny::pobierz(),
+			'tokeny_urzadzen'  => Nerti_Cookies_Tokeny::pobierz_urzadzenia(),
 			'tokeny_z_systemu' => Nerti_Cookies_Tokeny::czy_zaimportowane(),
 			// Skąd pochodzi wygląd i co import zgłosił — bez tego agent po drugiej
 			// stronie widzi kolory, ale nie wie, czy to projekt, Oxygen, czy nic.
@@ -385,6 +402,21 @@ class Nerti_Cookies_Abilities {
 		 * wygląda gorzej niż baner całkiem obcy, bo wygląda na pomyłkę.
 		 */
 		return $wynik;
+	}
+
+	public static function op_ustaw_tokeny( $args = array() ) {
+		$args    = is_array( $args ) ? $args : array();
+		$wspolne = isset( $args['tokeny'] ) && is_array( $args['tokeny'] ) ? $args['tokeny'] : array();
+		$urz     = array();
+		foreach ( array( 'mobile', 'desktop' ) as $u ) {
+			if ( isset( $args[ $u ] ) && is_array( $args[ $u ] ) ) {
+				$urz[ $u ] = $args[ $u ];
+			}
+		}
+		if ( empty( $wspolne ) && empty( $urz ) ) {
+			return array( 'ok' => false, 'blad' => 'Podaj tokeny, mobile albo desktop.' );
+		}
+		return Nerti_Cookies_Tokeny::ustaw( $wspolne, $urz );
 	}
 
 	/**

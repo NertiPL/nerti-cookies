@@ -38,7 +38,7 @@
 	display: flex;
 	align-items: var(--nc-align, flex-end);
 	justify-content: var(--nc-just, center);
-	padding: var(--nc-gap, 1rem);
+	padding: var(--nc-baner-pad, var(--nc-gap, 1rem));
 	font-family: var(--nc-font, system-ui, sans-serif);
 	font-size: var(--nc-fs, 1rem);
 	line-height: var(--nc-lh, 1.6);
@@ -56,11 +56,11 @@
 	width: min(var(--nc-szer, 46rem), 100%);
 	background: var(--nc-bg, #ffffff);
 	color: inherit;
-	border: 1px solid var(--nc-border, rgba(0, 0, 0, .12));
+	border: var(--nc-border-w, 1px) solid var(--nc-border, rgba(0, 0, 0, .12));
 	border-radius: var(--nc-radius-lg, 12px);
 	box-shadow: var(--nc-shadow, 0 8px 24px rgb(0 0 0 / .18));
 	padding: var(--nc-pad, 1.5rem);
-	max-height: 80vh;
+	max-height: var(--nc-panel-max-h, 80vh);
 	overflow-y: auto;
 }
 
@@ -131,6 +131,7 @@
 	font-family: var(--nc-font-head, inherit);
 	font-size: var(--nc-fs-head, 1.25rem);
 	line-height: var(--nc-lh-head, 1.2);
+	font-weight: var(--nc-tytul-waga, bold);
 	color: var(--nc-head-color, inherit);
 	margin: 0 0 var(--nc-head-margin, .5em);
 }
@@ -138,12 +139,14 @@
 .nc-baner__tresc {
 	margin: var(--nc-tresc-margin, 0 0 var(--nc-gap, 1rem));
 	color: var(--nc-tresc-color, inherit);
+	font-size: var(--nc-tresc-fs, inherit);
+	line-height: var(--nc-tresc-lh, inherit);
 	max-width: var(--nc-tresc-szer, 60ch);
 }
 
 .nc-baner__linki {
 	margin: 0 0 var(--nc-gap, 1rem);
-	font-size: var(--nc-fs-sm, .9375rem);
+	font-size: var(--nc-linki-fs, var(--nc-fs-sm, .9375rem));
 	display: var(--nc-linki-display, flex);
 	flex-wrap: wrap;
 	gap: var(--nc-gap, 1rem);
@@ -155,7 +158,13 @@
 }
 
 .nc-baner__linki a {
-	color: inherit;
+	display: var(--nc-link-display, inline);
+	/* Duży cel dotyku bez zmiany wysokości wiersza: padding w pionie oddany ujemnym marginesem. */
+	padding-block: var(--nc-link-pad, 0);
+	margin-block: calc(-1 * var(--nc-link-pad, 0px));
+	color: var(--nc-link-color, inherit);
+	font-weight: var(--nc-link-waga, inherit);
+	text-underline-offset: var(--nc-link-offset, auto);
 }
 
 .nc-baner__akcje {
@@ -173,12 +182,15 @@
  */
 .nc-btn {
 	font: inherit;
+	font-family: var(--nc-btn-font, inherit);
+	font-size: var(--nc-btn-fs, inherit);
+	line-height: var(--nc-btn-lh, inherit);
 	cursor: pointer;
-	min-height: 44px;
+	min-height: var(--nc-btn-min-h, 44px);
 	min-width: 44px;
-	padding: .625rem 1.25rem;
+	padding: var(--nc-btn-pad, .625rem 1.25rem);
 	border-radius: var(--nc-radius, 8px);
-	border: 1px solid var(--nc-border, rgba(0, 0, 0, .2));
+	border: var(--nc-btn-border-w, 1px) solid var(--nc-border, rgba(0, 0, 0, .2));
 	/*
 	 * Przejście obejmuje WSZYSTKIE właściwości, które zmieniają się na hover, nie samo
 	 * `filter`. Projekt, który podmienia kolory tła i obrysu, dostawał je natychmiast —
@@ -195,11 +207,19 @@
 }
 
 .nc-btn--rowny {
-	flex: 1 1 12rem;
+	flex: 1 1 var(--nc-btn-basis, 12rem);
 	background: var(--nc-primary, #16161f);
 	color: var(--nc-primary-ink, #ffffff);
-	border-color: transparent;
-	font-weight: 600;
+	border-color: var(--nc-btn-border, transparent);
+	font-weight: var(--nc-btn-waga, 600);
+}
+
+/*
+ * Kolejność na ekranie, nie w znaczniku: czytnik ekranu dalej słyszy „Odrzucam" pierwsze.
+ * Oba przyciski mają tę samą klasę wagi, więc zamiana miejsc nie łamie równości wyboru.
+ */
+.nc-btn--rowny[data-nc-akcja="akceptuj"] {
+	order: var(--nc-akceptuj-order, 0);
 }
 
 /*
@@ -209,14 +229,16 @@
  * przezroczysty zamiast zerowego, żeby wysokość zgadzała się z .nc-btn--rowny.
  */
 .nc-btn--tekst {
-	flex: 0 1 auto;
+	flex: var(--nc-tekst-flex, 0 1 auto);
 	background: transparent;
 	border-color: transparent;
-	color: inherit;
+	color: var(--nc-tekst-color, inherit);
+	font-size: var(--nc-tekst-fs, inherit);
+	font-weight: var(--nc-tekst-waga, inherit);
 	text-decoration-line: underline;
 	text-decoration-style: solid;
 	text-decoration-thickness: 1px;
-	text-underline-offset: .2em;
+	text-underline-offset: var(--nc-tekst-offset, .2em);
 }
 
 /*
@@ -232,16 +254,64 @@
 .nc-btn--tekst:hover {
 	background: transparent;
 	border-color: transparent;
-	color: inherit;
+	color: var(--nc-tekst-color, inherit);
 	filter: none;
 	text-decoration-line: underline;
-	text-decoration-thickness: 2px;
+	text-decoration-thickness: var(--nc-tekst-hover-grubosc, 2px);
 }
 
 .nc-btn--tekst:active {
 	text-decoration-line: underline;
-	text-decoration-thickness: 2px;
+	text-decoration-thickness: var(--nc-tekst-hover-grubosc, 2px);
 	transform: translateY(1px);
+}
+
+/*
+ * Hover przycisków równych: jawne kolory z projektu. Bez tokenów zostaje stan spoczynku
+ * plus filtr rozjaśnienia z .nc-btn:hover, czyli wygląd sprzed 0.6.0.
+ * Po .nc-btn:hover i tej samej specyficzności, więc wygrywa kolejnością.
+ */
+.nc-btn--rowny:hover {
+	background: var(--nc-btn-bg-hover, var(--nc-primary, #16161f));
+	color: var(--nc-btn-ink-hover, var(--nc-primary-ink, #ffffff));
+	border-color: var(--nc-btn-border-hover, var(--nc-btn-border, transparent));
+}
+
+/*
+ * „Zapisz wybór" po rozwinięciu ustawień. Domyślnie przycisk tekstowy jak dotąd;
+ * projekt może zrobić z niego pełny przycisk tokenami --nc-zapisz-*.
+ * Selektor podwójny, żeby bić .nc-btn--tekst i .nc-btn--tekst:hover bez !important.
+ */
+.nc-btn.nc-btn--zapisz {
+	flex: var(--nc-zapisz-flex, var(--nc-tekst-flex, 0 1 auto));
+	background: var(--nc-zapisz-bg, transparent);
+	border-color: var(--nc-zapisz-border, transparent);
+	color: var(--nc-zapisz-ink, var(--nc-tekst-color, inherit));
+	font-weight: var(--nc-zapisz-waga, inherit);
+	text-decoration-line: var(--nc-zapisz-podkreslenie, underline);
+}
+
+.nc-btn.nc-btn--zapisz:hover {
+	background: var(--nc-zapisz-bg-hover, var(--nc-zapisz-bg, transparent));
+	border-color: var(--nc-zapisz-border-hover, var(--nc-zapisz-border, transparent));
+	color: var(--nc-zapisz-ink-hover, var(--nc-zapisz-ink, var(--nc-tekst-color, inherit)));
+}
+
+/*
+ * Wejście panelu. Domyślnie czas 0s, czyli brak animacji jak dotąd. Opóźnienie pozwala
+ * projektowi pokazać baner dopiero po swoim „momencie" w hero, zamiast przykryć go od razu.
+ */
+.nc-baner:not([hidden]) .nc-baner__panel {
+	animation: nc-wejscie var(--nc-wejscie-czas, 0s) var(--nc-wejscie-ease, ease) var(--nc-wejscie-opoznienie, 0s) both;
+}
+
+@keyframes nc-wejscie {
+	/* visibility: niewidoczny panel w czasie opóźnienia nie łapie też kliknięć. */
+	from {
+		opacity: 0;
+		visibility: hidden;
+		transform: translateY(var(--nc-wejscie-y, 0));
+	}
 }
 
 .nc-btn:focus-visible,
@@ -417,13 +487,16 @@
  */
 @media (max-width: 47.9375rem) {
 	.nc-btn--rowny {
-		flex: 1 1 100%;
+		flex: 1 1 var(--nc-btn-basis-mobile, 100%);
 	}
 }
 
 @media (prefers-reduced-motion: reduce) {
 	.nc-btn {
 		transition: none;
+	}
+	.nc-baner:not([hidden]) .nc-baner__panel {
+		animation: none;
 	}
 }
 
