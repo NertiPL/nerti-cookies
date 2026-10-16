@@ -164,6 +164,7 @@
 	margin-block: calc(-1 * var(--nc-link-pad, 0px));
 	color: var(--nc-link-color, inherit);
 	font-weight: var(--nc-link-waga, inherit);
+	text-decoration-line: var(--nc-link-podkreslenie, underline);
 	text-underline-offset: var(--nc-link-offset, auto);
 }
 
@@ -235,6 +236,8 @@
 	color: var(--nc-tekst-color, inherit);
 	font-size: var(--nc-tekst-fs, inherit);
 	font-weight: var(--nc-tekst-waga, inherit);
+	line-height: var(--nc-tekst-lh, inherit);
+	min-height: var(--nc-tekst-min-h, var(--nc-btn-min-h, 44px));
 	text-decoration-line: underline;
 	text-decoration-style: solid;
 	text-decoration-thickness: 1px;

@@ -2,6 +2,17 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.6.2 — 2026-10-16
+
+### Dodane
+
+- `--nc-link-podkreslenie` (domyślnie `underline`): link do polityki jest podkreślony z samego banera, a nie dopiero wtedy, gdy motyw nie zeruje `a { text-decoration }`.
+- `--nc-tekst-lh`, `--nc-tekst-min-h`: przycisk „Ustawienia" może mieć inną wysokość i interlinię niż przyciski równe.
+
+### Uwaga dla tokenów
+
+- Słowa `inherit`, `initial`, `unset` jako WARTOŚĆ tokenu nie działają: odnoszą się do samej zmiennej, nie do właściwości, więc wraca wartość zapasowa. Zmierzone na biznesoweadhd.pl: `--nc-linki-fs: inherit` dało 14 px zamiast 15 px. Wpisuj liczbę.
+
 ## 0.6.1 — 2026-10-16
 
 ### Dodane

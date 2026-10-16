@@ -41,7 +41,7 @@ Trzy źródła, w tej kolejności — panel pokazuje, które jest aktywne:
 
 ### Tokeny kształtu (0.6.0)
 
-Wszystkie mają wartość zapasową równą wyglądowi sprzed 0.6.0, więc strona, która ich nie ustawia, nie zmienia się.
+Wszystkie mają wartość zapasową równą wyglądowi sprzed 0.6.0, więc strona, która ich nie ustawia, nie zmienia się. Wartością tokenu jest liczba albo kolor: `inherit`/`initial`/`unset` odnoszą się do samej zmiennej i dają wartość zapasową. 0.6.2 dodaje `--nc-link-podkreslenie`, `--nc-tekst-lh`, `--nc-tekst-min-h`.
 
 | Token | Co zmienia |
 |---|---|
