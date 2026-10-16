@@ -12,7 +12,8 @@ defined( 'ABSPATH' ) || exit;
  * ta strona naprawdę ładuje (inventory.md: „policy before inventory is a template with the
  * company name swapped"). Opis, odbiorca i czas życia pochodzą z biblioteki usług.
  *
- * Czego nie ma w tabeli: pozycji „nieznane". Nieznane ciasteczko w polityce to zdanie
+ * Czego nie ma w tabeli: pozycji „nieznane" i pomijanych (ślad panelu administratora,
+ * pozostałość po usuniętej wtyczce, „Pomiń" od właściciela). Nieznane ciasteczko w polityce to zdanie
  * „nie wiemy, co to jest" podpisane przez klienta — takie pozycje wiszą na pulpicie jako
  * zadanie, a administrator widzi pod tabelą ostrzeżenie.
  *
@@ -67,7 +68,8 @@ class Nerti_Cookies_Lista {
 		$dodaj( 'nerti-cookies', NERTI_COOKIES_CIASTECZKO );
 
 		foreach ( (array) ( $skan['pozycje'] ?? array() ) as $poz ) {
-			if ( '' === (string) $poz['usluga'] || 'nieznane' === $poz['status'] ) {
+			// Nieznane i pomijane (ślad panelu, pozostałość po wtyczce, „Pomiń") nie idą do polityki.
+			if ( '' === (string) $poz['usluga'] || 'nieznane' === $poz['status'] || in_array( $poz['status'], Nerti_Cookies_Skaner::POMIJANE, true ) ) {
 				continue;
 			}
 			$dodaj( (string) $poz['usluga'], 'ciasteczko' === $poz['typ'] ? (string) $poz['klucz'] : '' );

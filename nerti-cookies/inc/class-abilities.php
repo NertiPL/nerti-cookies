@@ -171,6 +171,7 @@ class Nerti_Cookies_Abilities {
 						'osadzenia'     => array( 'type' => 'object' ),
 						'uchwyty'       => array( 'type' => 'object' ),
 						'bufor_wyjscia' => array( 'type' => 'boolean' ),
+						'ignoruj'       => array( 'type' => 'array', 'items' => array( 'type' => 'string' ), 'description' => 'Wzorce nazw pominiętych w skanie (gwiazdka = dowolny ciąg, np. "pys_*"). ZASTĘPUJE całą listę. Do dopisywania pojedynczych pozycji służy przypisz-kategorie z kategorią "pomin".' ),
 						'consent_mode'  => array( 'type' => 'boolean' ),
 						'cm_redakcja'   => array( 'type' => 'boolean', 'description' => 'Consent Mode: ads_data_redaction przy braku zgody reklamowej.' ),
 						'cm_url_passthrough' => array( 'type' => 'boolean', 'description' => 'Consent Mode: url_passthrough.' ),
@@ -300,7 +301,7 @@ class Nerti_Cookies_Abilities {
 
 			'skanuj-strone' => array(
 				'etykieta' => 'Skanuj stronę',
-				'opis'     => 'Pobiera podstrony tak jak nowy odwiedzający (bez ciasteczek, przez cache) i zwraca, co na nich jest: skrypty, osadzenia, piksele i ciasteczka z nagłówków serwera — każda pozycja z nazwą narzędzia, kategorią i statusem: blokowane (czeka na zgodę), zawsze (niezbędne), BLAD (śledzi przed zgodą — bloker Q-COOKIE), nieznane (do rozstrzygnięcia). Ciasteczek ustawianych przez JavaScript ta operacja NIE widzi: to robi skan z panelu (Ciasteczka → Skanuj stronę), który dopisuje je do tego samego wyniku. Wynik zapisuje się i zasila shortcode [nerti_cookies_lista].',
+				'opis'     => 'Pobiera podstrony tak jak nowy odwiedzający (bez ciasteczek, przez cache) i zwraca, co na nich jest: skrypty, osadzenia, piksele i ciasteczka z nagłówków serwera — każda pozycja z nazwą narzędzia, kategorią i statusem: blokowane (czeka na zgodę), zawsze (niezbędne), BLAD (śledzi przed zgodą — bloker Q-COOKIE), nieznane (do rozstrzygnięcia). Trzy statusy pomijane nie wymagają decyzji i nie trafiają do polityki cookies: admin (ślad panelu administratora: kreator stron, Site Kit, klient REST WordPressa), pozostalosc (po usuniętej wtyczce, np. Complianz) i pominiete (właściciel użył „Pomiń"; pole status_pierwotny mówi, czym była). Ciasteczek ustawianych przez JavaScript ta operacja NIE widzi: to robi skan z panelu (Ciasteczka → Skanuj stronę), który dopisuje je do tego samego wyniku. Wynik zapisuje się i zasila shortcode [nerti_cookies_lista].',
 				'wejscie'  => array(
 					'type'       => 'object',
 					'properties' => array(
@@ -313,6 +314,48 @@ class Nerti_Cookies_Abilities {
 				'wyjscie'  => array( 'type' => 'object' ),
 				'adnotacje' => array( 'readonly' => false, 'idempotent' => true, 'destructive' => false ),
 				'wykonaj'  => array( __CLASS__, 'op_skanuj' ),
+			),
+
+			'przypisz-kategorie' => array(
+				'etykieta' => 'Przypisz kategorie pozycjom ze skanu',
+				'opis'     => 'Hurtowo przypisuje kategorię (niezbedne, analityczne, marketingowe) albo pomija (pomin) pozycje, które skan zostawił jako nierozpoznane. Nazwa może mieć gwiazdkę: "pys_*" obejmuje wszystkie ciasteczka i wpisy pamięci zaczynające się od pys_. Dopasowanie idzie po kluczu pozycji (nazwa ciasteczka, klucz storage, domena, id usługi) i po nazwie widocznej w skanie. Dotyka tylko pozycji o statusie nieznane: rozpoznanych (blokowane, zawsze) i działających przed zgodą (BLAD) nie ruszy, żeby nie ukryć prawdziwego śledzenia. "pomin" nie zmienia blokady, tylko usuwa pozycję z listy zadań i z polityki cookies; cofa się usunięciem wzorca z ustawienia ignoruj (zapisz-ustawienia). Wymaga wcześniejszego skanu (skanuj-strone, najlepiej pełny z panelu). Wynik: co się zmieniło, co pominięto i dlaczego, czego skan nie zawiera. Po zmianie kategorii wyczyść cache strony.',
+				'wejscie'  => array(
+					'type'       => 'object',
+					'properties' => array(
+						'pozycje' => array(
+							'type'        => 'array',
+							'minItems'    => 1,
+							'maxItems'    => 200,
+							'description' => 'Lista przypisań.',
+							'items'       => array(
+								'type'       => 'object',
+								'properties' => array(
+									'nazwa'     => array( 'type' => 'string', 'minLength' => 1, 'description' => 'Nazwa pozycji ze skanu albo wzorzec z gwiazdką, np. "pys_*", "cmplz_*", "fbqpc_*".' ),
+									'kategoria' => array( 'type' => 'string', 'enum' => array( 'marketingowe', 'analityczne', 'niezbedne', 'pomin' ) ),
+								),
+								'required'   => array( 'nazwa', 'kategoria' ),
+							),
+						),
+					),
+					'required'   => array( 'pozycje' ),
+				),
+				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => false, 'idempotent' => true, 'destructive' => false ),
+				'wykonaj'  => array( __CLASS__, 'op_przypisz' ),
+			),
+
+			'zakoncz-kreator' => array(
+				'etykieta' => 'Zakończ kreator pierwszego uruchomienia',
+				'opis'     => 'Oznacza kreator „Pierwsze uruchomienie" jako ukończony, więc z panelu WordPressa znika przypomnienie „Skonfiguruj w 4 krokach". Służy agentowi, który skonfigurował wtyczkę przez MCP (dokumenty, skan, wygląd) i nie chce, żeby klient dostał przypomnienie o czymś, co już jest zrobione. Z {"otworz": true} otwiera kreator ponownie. Nie zmienia żadnych ustawień banera. Zakończenie nie jest dowodem, że wszystko działa: sprawdza to operacja status.',
+				'wejscie'  => array(
+					'type'       => 'object',
+					'properties' => array(
+						'otworz' => array( 'type' => 'boolean', 'description' => 'true = otwórz kreator ponownie zamiast go kończyć.' ),
+					),
+				),
+				'wyjscie'  => array( 'type' => 'object' ),
+				'adnotacje' => array( 'readonly' => false, 'idempotent' => true, 'destructive' => false ),
+				'wykonaj'  => array( __CLASS__, 'op_kreator' ),
 			),
 
 			'lista-uslug' => array(
@@ -379,7 +422,7 @@ class Nerti_Cookies_Abilities {
 	}
 
 	public static function op_zapisz( $args = array() ) {
-		$dozwolone = array( 'teksty', 'link_polityka', 'link_cookies', 'waznosc_dni', 'kategorie', 'wzorce', 'osadzenia', 'uchwyty', 'bufor_wyjscia', 'consent_mode', 'wyglad', 'administrator', 'wycofanie' );
+		$dozwolone = array( 'teksty', 'link_polityka', 'link_cookies', 'waznosc_dni', 'kategorie', 'wzorce', 'osadzenia', 'uchwyty', 'bufor_wyjscia', 'consent_mode', 'wyglad', 'administrator', 'wycofanie', 'ignoruj' );
 		$nowe      = array();
 		foreach ( $dozwolone as $klucz ) {
 			if ( array_key_exists( $klucz, (array) $args ) ) {
@@ -460,6 +503,108 @@ class Nerti_Cookies_Abilities {
 			'pozycje'       => array_values( (array) ( $w['pozycje'] ?? array() ) ),
 			'nota'          => 'Skan serwerowy nie widzi ciasteczek ustawianych przez JavaScript. Pełny skan: panel → Ciasteczka → Skanuj stronę (dopisuje wynik z przeglądarki). Status BLAD = bloker Q-COOKIE.',
 		);
+	}
+
+	/**
+	 * Hurtowe przypisanie kategorii / pominięcie pozycji ze skanu. Zapis robi
+	 * `Nerti_Cookies_Skaner::przypisz()` i `::pomin()`, te same co przyciski w panelu.
+	 *
+	 * @param array $args {pozycje:[{nazwa,kategoria}]}
+	 * @return array|WP_Error
+	 */
+	public static function op_przypisz( $args = array() ) {
+		$wpisy = is_array( $args ) && isset( $args['pozycje'] ) && is_array( $args['pozycje'] ) ? $args['pozycje'] : array();
+		if ( ! $wpisy ) {
+			return new WP_Error( 'nc_przypisz', 'Podaj pozycje: [{"nazwa":"pys_*","kategoria":"marketingowe"}].', array( 'status' => 400 ) );
+		}
+		$skan = Nerti_Cookies_Skaner::surowy();
+		if ( empty( $skan['pozycje'] ) ) {
+			return new WP_Error( 'nc_przypisz', 'Brak wyniku skanu. Najpierw skanuj-strone (najlepiej pełny skan z panelu).', array( 'status' => 409 ) );
+		}
+		$zmiany    = array();
+		$bez_zmian = array();
+		$brak      = array();
+		foreach ( $wpisy as $wpis ) {
+			$nazwa = trim( (string) ( $wpis['nazwa'] ?? '' ) );
+			$kat   = (string) ( $wpis['kategoria'] ?? '' );
+			if ( '' === $nazwa || ! in_array( $kat, array( 'niezbedne', 'analityczne', 'marketingowe', 'pomin' ), true ) ) {
+				return new WP_Error( 'nc_przypisz', 'Pozycja "' . $nazwa . '": nazwa wymagana, kategoria: niezbedne, analityczne, marketingowe albo pomin.', array( 'status' => 400 ) );
+			}
+			$dop = array();
+			foreach ( $skan['pozycje'] as $p ) {
+				if ( Nerti_Cookies_Uslugi::pasuje_nazwa( (string) $p['klucz'], $nazwa ) || Nerti_Cookies_Uslugi::pasuje_nazwa( (string) $p['nazwa'], $nazwa ) ) {
+					$dop[] = $p;
+				}
+			}
+			if ( ! $dop ) {
+				$brak[] = $nazwa;
+				continue;
+			}
+			$do_zmiany = array();
+			foreach ( $dop as $p ) {
+				if ( 'nieznane' === $p['status'] ) {
+					$do_zmiany[] = $p;
+				} else {
+					$bez_zmian[] = array( 'nazwa' => $nazwa, 'klucz' => $p['klucz'], 'status' => $p['status'], 'powod' => 'Pozycja jest już rozpoznana albo działa przed zgodą; ta operacja zmienia tylko nierozpoznane.' );
+				}
+			}
+			if ( ! $do_zmiany ) {
+				continue;
+			}
+			$klucze = array_map( static function ( $p ) { return (string) $p['klucz']; }, $do_zmiany );
+			if ( 'pomin' === $kat ) {
+				// Wzorzec idzie do ustawienia w całości: `pys_*` obejmie też przyszłe `pys_*`.
+				$w = Nerti_Cookies_Skaner::pomin( $nazwa );
+				if ( is_wp_error( $w ) ) {
+					return $w;
+				}
+				$zmiany[] = array( 'nazwa' => $nazwa, 'kategoria' => 'pomin', 'dopasowane' => $klucze, 'zapisany_wzorzec' => $nazwa );
+				continue;
+			}
+			// Do banera (kasowanie po odmowie) nadają się tylko wzorce z gwiazdką na końcu, więc inne
+			// rozwijamy do dokładnych kluczy. Każda para (rodzaj, wzorzec) idzie do zapisu raz.
+			$gw       = strpos( $nazwa, '*' );
+			$na_koncu = false !== $gw && strlen( $nazwa ) - 1 === $gw;
+			$zapisane = array();
+			foreach ( $do_zmiany as $p ) {
+				$wz = ( $na_koncu && Nerti_Cookies_Uslugi::pasuje_nazwa( (string) $p['klucz'], $nazwa ) ) ? $nazwa : (string) $p['klucz'];
+				$id = $p['typ'] . '|' . $wz;
+				if ( isset( $zapisane[ $id ] ) ) {
+					continue;
+				}
+				$w = Nerti_Cookies_Skaner::przypisz( (string) $p['typ'], $wz, $kat );
+				if ( is_wp_error( $w ) ) {
+					return $w;
+				}
+				$zapisane[ $id ] = $wz;
+			}
+			$zmiany[] = array( 'nazwa' => $nazwa, 'kategoria' => $kat, 'dopasowane' => $klucze, 'zapisane_wzorce' => array_values( $zapisane ) );
+		}
+		return array(
+			'ok'                 => true,
+			'zmiany'             => $zmiany,
+			'bez_zmian'          => $bez_zmian,
+			'brak_dopasowania'   => $brak,
+			'ignoruj'            => array_values( (array) Nerti_Cookies_Ustawienia::pole( 'ignoruj', array() ) ),
+			'podsumowanie_skanu' => Nerti_Cookies_Skaner::podsumowanie(),
+			'nota'               => 'Blokada kategorii działa od następnego wyświetlenia strony: wyczyść cache. Pominięcie ("pomin") nie zmienia blokady skryptów.',
+		);
+	}
+
+	/**
+	 * Kończy (albo otwiera ponownie) kreator pierwszego uruchomienia.
+	 *
+	 * @param array $args {otworz?:bool}
+	 * @return array
+	 */
+	public static function op_kreator( $args = array() ) {
+		$otworz = is_array( $args ) && ! empty( $args['otworz'] );
+		if ( $otworz ) {
+			Nerti_Cookies_Kreator::otworz();
+		} else {
+			Nerti_Cookies_Kreator::zakoncz();
+		}
+		return array( 'ok' => true, 'kreator_ukonczony' => Nerti_Cookies_Kreator::ukonczony() );
 	}
 
 	public static function op_uslugi( $args = array() ) {

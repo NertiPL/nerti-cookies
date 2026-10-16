@@ -2,6 +2,35 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.7.0 — 2026-10-17
+
+### Dodane
+
+- **Ślady PixelYourSite w bibliotece (marketingowe, usługa Meta Pixel).** Ciasteczka i localStorage: `pys_*` (m.in. `pys_first_visit`, `pys_landing_page`, `pys_session_limit`, `pys_start_session`, `pys_advanced_form_data`, `pys_cd`, `pys_event_referrer`, `pys_session_entry_referrer`), `last_pys*` (`last_pys_landing_page`, `last_pysTrafficSource`), `pysTrafficSource`, `pbid` oraz `fbqpc_*` (localStorage Meta Pixela). Baner kasuje je po odmowie i wycofaniu zgody tak samo jak `_fbp` i `_fbc`.
+- **Trzy nowe statusy „pomijane" w skanie:** „Tylko panel administratora", „Pozostałość po usuniętej wtyczce" i „Pominięte przez Ciebie". Nie liczą się do „nierozpoznane", nie trafiają do `[nerti_cookies_lista]`, w panelu leżą zwinięte na dole tabeli.
+  - Ślady panelu: `breakdance*` (kreator stron), `googlesitekit*` (Site Kit), `wp-api-schema-model*` i `wp-settings-*` (WordPress). Pozostałość po Complianzie: `cmplz_*`.
+  - Ramka skanu zgłasza, czy strona wyrenderowała się dla zalogowanego (`zalogowany`). Ciasteczko albo wpis pamięci widziany wyłącznie w takim skanie, którego serwer nie widział w anonimowym, dostaje status panelu administratora.
+- **„Pomiń" przy każdej nierozpoznanej pozycji** (obok „Przypisz") i „Przywróć" w zwiniętej sekcji. Nowe ustawienie `ignoruj` (lista wzorców), dostępne też w `zapisz-ustawienia`.
+- **Dwa nowe abilities (MCP i REST, w `katalog()`):**
+  - `nerti-cookies/przypisz-kategorie`: hurtowe przypisanie kategorii albo `pomin` pozycjom ze skanu, nazwy z gwiazdką (`pys_*`); zwraca, co się zmieniło, co pominięto i czego nie znaleziono.
+  - `nerti-cookies/zakoncz-kreator`: oznacza kreator „Pierwsze uruchomienie" jako ukończony; `{"otworz": true}` otwiera go ponownie.
+- Wzorce nazw przyjmują gwiazdkę w dowolnym miejscu (wcześniej tylko na końcu). Filtr `nerti_cookies_pomijane` rozszerza listę śladów pomijanych.
+- Test `testy/sprawdz-skaner.php`.
+
+### Naprawione
+
+- Skan nie czytał list `storage` z ustawień kategorii: po przypisaniu klucza localStorage przyciskiem „Przypisz" wracał jako „nie rozpoznano" przy następnym skanie. Teraz ustawienia wygrywają z biblioteką, tak jak przy ciasteczkach.
+
+### Dlaczego
+
+2026-10-17 na żywej stronie klienta zakładka „Skanuj stronę" pokazywała kilkadziesiąt wierszy „Nie rozpoznano" z powodu śladów panelu administratora (kreator stron, Site Kit, klient REST), resztek usuniętej wtyczki Complianz i niewpisanych w bibliotekę cookies PixelYourSite. Żadne z nich nie było śledzeniem odwiedzającego poza PixelYourSite, który jest marketingowy i ma być blokowany do zgody.
+
+### Zgodność
+
+- Pomijanie dotyczy wyłącznie pozycji nierozpoznanych. Narzędzie rozpoznane przez bibliotekę albo działające przed zgodą (`BLAD`) zostaje w raporcie, a host (obca domena) nigdy nie jest uznawany za ślad panelu. „Pomiń" nie zmienia blokady skryptów.
+- Status jest nakładką stosowaną przy odczycie, nie zapisem w skanie, więc stary wynik skanu poprawia się po aktualizacji bez ponownego skanowania. Wyjście `skanuj-strone` dostało pole `status_pierwotny` przy pozycjach zmienionych przez nakładkę i nowe klucze w `podsumowanie.licz` (`admin`, `pozostalosc`, `pominiete`).
+- Wiersz „fonts.googleapis.com — połączenie z obcą domeną" nie jest rozpoznawany jako usługa: pochodził z ustawienia LiteSpeed Cache (DNS preconnect) i znika po ponownym skanie.
+
 ## 0.6.2 — 2026-10-16
 
 ### Dodane

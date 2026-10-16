@@ -21,6 +21,10 @@ class Nerti_Cookies_Pulpit {
 		'zawsze'    => array( 'Działa zawsze (niezbędne)', 'nc-status--info' ),
 		'BLAD'      => array( 'Działa PRZED zgodą, do naprawy', 'nc-status--blad' ),
 		'nieznane'  => array( 'Nie rozpoznano, przypisz kategorię', 'nc-status--uwaga' ),
+		// Pomijane (0.7.0): nie wymagają decyzji, nie trafiają do listy ciasteczek w polityce.
+		'admin'       => array( 'Tylko panel administratora (pomijane)', 'nc-status--info' ),
+		'pozostalosc' => array( 'Pozostałość po usuniętej wtyczce (pomijane)', 'nc-status--info' ),
+		'pominiete'   => array( 'Pominięte przez Ciebie', 'nc-status--info' ),
 	);
 
 	const TYPY = array(
@@ -34,6 +38,7 @@ class Nerti_Cookies_Pulpit {
 
 	public static function hooks() {
 		add_action( 'admin_post_nerti_cookies_przypisz', array( __CLASS__, 'obsluz_przypisanie' ) );
+		add_action( 'admin_post_nerti_cookies_przywroc', array( __CLASS__, 'obsluz_przywrocenie' ) );
 		add_action( 'admin_post_nerti_cookies_skanuj', array( __CLASS__, 'obsluz_skan_bez_js' ) );
 	}
 
@@ -169,8 +174,11 @@ class Nerti_Cookies_Pulpit {
 		$u      = Nerti_Cookies_Ustawienia::pobierz();
 		$akcja  = esc_url( admin_url( 'admin-post.php' ) );
 		$pozycje = (array) ( $skan['pozycje'] ?? array() );
-		$waga   = array( 'BLAD' => 0, 'nieznane' => 1, 'blokowane' => 2, 'zawsze' => 3 );
-		uasort( $pozycje, static function ( $a, $b ) use ( $waga ) { return $waga[ $a['status'] ] - $waga[ $b['status'] ] ?: strcmp( $a['nazwa'], $b['nazwa'] ); } );
+		$waga   = array( 'BLAD' => 0, 'nieznane' => 1, 'blokowane' => 2, 'zawsze' => 3, 'admin' => 4, 'pozostalosc' => 4, 'pominiete' => 4 );
+		uasort( $pozycje, static function ( $a, $b ) use ( $waga ) { return ( $waga[ $a['status'] ] ?? 9 ) - ( $waga[ $b['status'] ] ?? 9 ) ?: strcmp( $a['nazwa'], $b['nazwa'] ); } );
+		// Pomijane idą na dół, zwinięte: prawdziwe pozycje nie mają się tonąć w śladach panelu.
+		$pomijane = array_filter( $pozycje, static function ( $p ) { return in_array( $p['status'], Nerti_Cookies_Skaner::POMIJANE, true ); } );
+		$pozycje  = array_diff_key( $pozycje, $pomijane );
 		?>
 		<section id="nc-skan" class="nc-sekcja" data-nc-panel="skan">
 			<h2>Skanuj stronę</h2>
@@ -184,7 +192,7 @@ class Nerti_Cookies_Pulpit {
 			</noscript>
 			<div id="nc-skaner-ramki" class="nc-skaner__ramki" aria-hidden="true"></div>
 
-			<?php if ( ! $pozycje ) : ?>
+			<?php if ( ! $pozycje && ! $pomijane ) : ?>
 				<p><em>Nie ma jeszcze wyniku skanu.</em></p>
 			<?php else : ?>
 				<p class="description">Skan z <?php echo esc_html( wp_date( 'j.m.Y H:i', (int) $skan['czas'] ) ); ?>, podstron: <?php echo esc_html( (string) count( (array) $skan['strony'] ) ); ?>.</p>
@@ -210,6 +218,7 @@ class Nerti_Cookies_Pulpit {
 											<?php endforeach; ?>
 										</select>
 										<button type="submit" class="button button-small">Przypisz</button>
+										<button type="submit" name="pomin" value="1" class="button button-small" title="To nie jest śledzenie odwiedzających (np. ślad panelu albo narzędzie, którego już nie ma). Pozycja znika z listy zadań i z polityki. Możesz to cofnąć na dole tej tabeli.">Pomiń</button>
 									</form>
 								<?php endif; ?>
 							</td>
@@ -220,50 +229,79 @@ class Nerti_Cookies_Pulpit {
 					</tbody>
 				</table>
 				<p class="description">„Niezbędne" wybieraj tylko wtedy, gdy strona bez tego narzędzia przestaje działać dla kogoś, kto o nic nie prosił. Wygoda właściciela strony to nie jest ten powód.</p>
+				<?php if ( $pomijane ) : ?>
+					<details class="nc-skan__pomijane" id="nc-skan-pomijane">
+						<summary>Pomijane: <?php echo esc_html( (string) count( $pomijane ) ); ?> (nie wymagają kategorii i nie trafiają do polityki)</summary>
+						<p class="description">To ślady panelu administratora, pozostałości po usuniętych wtyczkach i pozycje, które sam pominąłeś. Skaner działa w Twojej sesji, więc widzi to, czego odwiedzający strony nie ma. Pominięcie nie zmienia blokady skryptów.</p>
+						<table class="widefat striped nc-tabela nc-skan">
+							<thead><tr><th>Co to jest</th><th>Rodzaj</th><th>Status</th><th>Gdzie</th></tr></thead>
+							<tbody>
+							<?php foreach ( $pomijane as $p ) : ?>
+								<?php $st = self::STATUSY[ $p['status'] ]; ?>
+								<tr>
+									<td><strong><?php echo esc_html( $p['nazwa'] ); ?></strong><br><span class="description"><?php echo esc_html( $p['opis'] ); ?></span></td>
+									<td><?php echo esc_html( self::TYPY[ $p['typ'] ] ?? $p['typ'] ); ?></td>
+									<td><span class="nc-status <?php echo esc_attr( $st[1] ); ?>"><?php echo esc_html( $st[0] ); ?></span>
+										<?php if ( 'pominiete' === $p['status'] ) : ?>
+											<form method="post" action="<?php echo $akcja; // phpcs:ignore ?>" class="nc-przypisz">
+												<input type="hidden" name="action" value="nerti_cookies_przywroc">
+												<input type="hidden" name="klucz" value="<?php echo esc_attr( $p['klucz'] ); ?>">
+												<?php wp_nonce_field( 'nerti_cookies_przywroc' ); ?>
+												<button type="submit" class="button button-small">Przywróć</button>
+											</form>
+										<?php endif; ?>
+									</td>
+									<td class="nc-skan__gdzie"><?php echo esc_html( self::sciezki( (array) $p['strony'], 2 ) ); ?></td>
+								</tr>
+							<?php endforeach; ?>
+							</tbody>
+						</table>
+					</details>
+				<?php endif; ?>
 			<?php endif; ?>
 		</section>
 		<?php
 	}
 
 	/**
-	 * Przypisanie kategorii nierozpoznanej pozycji. Ciasteczko trafia do listy kategorii,
-	 * skrypt/osadzenie/host — do mapy wzorców jako domena. Domena, nie cały adres: adres
-	 * z parametrami zmienia się przy każdej wersji skryptu i wzorzec przestałby działać.
+	 * Przypisanie kategorii nierozpoznanej pozycji albo „Pomiń" (ten sam formularz, drugi
+	 * przycisk). Zapis robi `Nerti_Cookies_Skaner`, wspólny z ability `przypisz-kategorie`.
 	 */
 	public static function obsluz_przypisanie() {
 		if ( ! current_user_can( 'manage_options' ) ) {
 			wp_die( 'Brak uprawnień.' );
 		}
 		check_admin_referer( 'nerti_cookies_przypisz' );
-		$u     = Nerti_Cookies_Ustawienia::pobierz();
 		$typ   = sanitize_key( wp_unslash( $_POST['typ'] ?? '' ) );
 		$klucz = sanitize_text_field( wp_unslash( $_POST['klucz'] ?? '' ) );
-		$kat   = sanitize_key( wp_unslash( $_POST['kategoria'] ?? '' ) );
-		if ( '' === $klucz || ! isset( $u['kategorie'][ $kat ] ) ) {
-			wp_die( 'Nieprawidłowe dane.' );
-		}
-		if ( in_array( $typ, array( 'ciasteczko', 'pamiec' ), true ) ) {
-			$pole  = 'ciasteczko' === $typ ? 'ciasteczka' : 'storage';
-			$lista = array_values( array_unique( array_merge( (array) ( $u['kategorie'][ $kat ][ $pole ] ?? array() ), array( $klucz ) ) ) );
-			$wynik = Nerti_Cookies_Ustawienia::zapisz( array( 'kategorie' => array( $kat => array( $pole => $lista ) ) ) );
+		if ( isset( $_POST['pomin'] ) ) {
+			$wynik = Nerti_Cookies_Skaner::pomin( $klucz );
+			$info  = 'Pominięto. Pozycja jest na dole listy, zwinięta; możesz ją przywrócić.';
 		} else {
-			$host  = wp_parse_url( ( false === strpos( $klucz, '://' ) ? 'https://' : '' ) . $klucz, PHP_URL_HOST );
-			$wzor  = $host ? (string) $host : $klucz;
-			$mapa  = 'osadzenie' === $typ ? 'osadzenia' : 'wzorce';
-			$wynik = Nerti_Cookies_Ustawienia::zapisz( array( $mapa => array( $wzor => $kat ) ) );
+			$kat   = sanitize_key( wp_unslash( $_POST['kategoria'] ?? '' ) );
+			$wynik = Nerti_Cookies_Skaner::przypisz( $typ, $klucz, $kat );
+			$info  = 'Przypisano kategorię. Blokada działa od następnego wyświetlenia strony. Wyczyść cache strony.';
 		}
 		if ( is_wp_error( $wynik ) ) {
 			wp_die( esc_html( $wynik->get_error_message() ) );
 		}
-		// Pozycja w zapisanym skanie dostaje nowy status od razu, bez ponownego skanowania.
-		$skan = Nerti_Cookies_Skaner::wynik();
-		$k    = $typ . '|' . $klucz;
-		if ( isset( $skan['pozycje'][ $k ] ) ) {
-			$skan['pozycje'][ $k ]['kategoria'] = $kat;
-			$skan['pozycje'][ $k ]['status']    = 'niezbedne' === $kat ? 'zawsze' : 'blokowane';
-			update_option( Nerti_Cookies_Skaner::OPCJA, $skan, false );
+		wp_safe_redirect( admin_url( 'admin.php?page=nerti-cookies&nc-info=' . rawurlencode( $info ) . '#nc-skan' ) );
+		exit;
+	}
+
+	/**
+	 * Cofnięcie „Pomiń".
+	 */
+	public static function obsluz_przywrocenie() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Brak uprawnień.' );
 		}
-		wp_safe_redirect( admin_url( 'admin.php?page=nerti-cookies&nc-info=' . rawurlencode( 'Przypisano kategorię. Blokada działa od następnego wyświetlenia strony. Wyczyść cache strony.' ) . '#nc-skan' ) );
+		check_admin_referer( 'nerti_cookies_przywroc' );
+		$wynik = Nerti_Cookies_Skaner::przywroc( sanitize_text_field( wp_unslash( $_POST['klucz'] ?? '' ) ) );
+		if ( is_wp_error( $wynik ) ) {
+			wp_die( esc_html( $wynik->get_error_message() ) );
+		}
+		wp_safe_redirect( admin_url( 'admin.php?page=nerti-cookies&nc-info=' . rawurlencode( 'Przywrócono pozycję.' ) . '#nc-skan' ) );
 		exit;
 	}
 

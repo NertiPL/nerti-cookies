@@ -98,7 +98,11 @@ class Nerti_Cookies_Uslugi {
 				'skrypty'    => array( 'connect.facebook.net', 'facebook.com/tr', 'fbq(', 'fbevents.js', 'pixelyoursite/dist/scripts/public.', 'pixelyoursite-pro/dist/scripts/public.' ),
 				'piksele'    => array( 'facebook.com/tr' ),
 				'hosty'      => array( 'facebook.net', 'facebook.com' ),
-				'ciasteczka' => array( '_fbp' => '90 dni', '_fbc' => '90 dni', 'fr' => '90 dni' ),
+				// `pys_*`, `last_pys*`, `pysTrafficSource`, `pbid` to ciasteczka i wpisy localStorage PixelYourSite
+				// (źródło ruchu, strona wejścia, sesja, dane formularzy do zdarzeń). Dostawca nie podaje jednego
+				// czasu życia, więc tabela pokazuje, od czego zależy. `fbqpc_*` to localStorage Meta Pixela.
+				'ciasteczka' => array( '_fbp' => '90 dni', '_fbc' => '90 dni', 'fr' => '90 dni', 'pys_*' => 'zależnie od ustawień PixelYourSite', 'last_pys*' => 'zależnie od ustawień PixelYourSite', 'pysTrafficSource' => 'zależnie od ustawień PixelYourSite', 'pbid' => 'zależnie od ustawień PixelYourSite' ),
+				'storage'    => array( 'pys_*', 'last_pys*', 'pysTrafficSource', 'pbid', 'fbqpc_*' ),
 				// PixelYourSite: `pys` to uchwyt z wp_enqueue_script, `pys-js` to id znacznika, który WordPress z niego robi.
 				'uchwyty'    => array( 'facebook-pixel', 'pys', 'pys-js' ),
 				'wtyczki'    => array( 'official-facebook-pixel', 'facebook-for-woocommerce', 'pixelyoursite' ),
@@ -312,7 +316,12 @@ class Nerti_Cookies_Uslugi {
 	}
 
 	/**
-	 * Czy nazwa pasuje do wzorca z gwiazdką na końcu (`_ga_*`).
+	 * Czy nazwa pasuje do wzorca z gwiazdką (`_ga_*`, `*_sid`, `wp-*-model`). Gwiazdka znaczy
+	 * „dowolny ciąg znaków" i może stać na początku, w środku i na końcu. Wielkość liter ma
+	 * znaczenie: `_ga` i `_GA` to dwa różne ciasteczka.
+	 *
+	 * Baner (baner.js) kasuje po odmowie tylko wzorce z gwiazdką NA KOŃCU, więc wzorce
+	 * zapisywane w kategoriach (a stąd wysyłane do przeglądarki) trzymaj w tej postaci.
 	 *
 	 * @param string $nazwa   Nazwa ciasteczka.
 	 * @param string $wzorzec Wzorzec.
@@ -320,10 +329,85 @@ class Nerti_Cookies_Uslugi {
 	 */
 	public static function pasuje_nazwa( $nazwa, $wzorzec ) {
 		$wzorzec = (string) $wzorzec;
-		if ( '*' === substr( $wzorzec, -1 ) ) {
-			return 0 === strpos( (string) $nazwa, substr( $wzorzec, 0, -1 ) );
+		$nazwa   = (string) $nazwa;
+		if ( '' === $wzorzec ) {
+			return false;
 		}
-		return (string) $nazwa === $wzorzec;
+		$gwiazdka = strpos( $wzorzec, '*' );
+		if ( false === $gwiazdka ) {
+			return $nazwa === $wzorzec;
+		}
+		if ( strlen( $wzorzec ) - 1 === $gwiazdka ) {
+			return 0 === strpos( $nazwa, substr( $wzorzec, 0, -1 ) );
+		}
+		$re = '#^' . str_replace( '\*', '.*', preg_quote( $wzorzec, '#' ) ) . '$#s';
+		return 1 === preg_match( $re, $nazwa );
+	}
+
+	/**
+	 * Wpisy, które skaner widzi, ale które NIE są śledzeniem odwiedzającego, więc nie wymagają
+	 * kategorii i nie trafiają do listy ciasteczek w polityce.
+	 *
+	 * Skan z panelu działa w sesji zalogowanego administratora, więc łapie to, co zostawiają
+	 * narzędzia panelu (kreator stron, Site Kit, klient REST WordPressa) i ślady wtyczek, które
+	 * zostały usunięte, a ich wpisy dalej siedzą w przeglądarce admina. Gość strony tego nie ma.
+	 *
+	 * Statusy: `admin` (tylko panel administratora) i `pozostalosc` (po usuniętej wtyczce).
+	 * Te wzorce działają tylko na pozycje, których nie rozpoznała żadna usługa ani lista
+	 * z ustawień: kategoria przypisana ręcznie albo usługa z biblioteki zawsze wygrywa.
+	 *
+	 * @return array<string,array>
+	 */
+	public static function pomijane() {
+		$p = array(
+			'kreator-stron' => array(
+				'nazwa'      => 'Kreator stron (Oxygen, Breakdance)',
+				'status'     => 'admin',
+				'ciasteczka' => array(),
+				'storage'    => array( 'breakdance*' ),
+			),
+			'site-kit'      => array(
+				'nazwa'      => 'Google Site Kit (pulpit w panelu)',
+				'status'     => 'admin',
+				'ciasteczka' => array(),
+				'storage'    => array( 'googlesitekit*' ),
+			),
+			'wp-panel'      => array(
+				'nazwa'      => 'WordPress (klient REST i ustawienia panelu)',
+				'status'     => 'admin',
+				'ciasteczka' => array( 'wp-settings-*' ),
+				'storage'    => array( 'wp-api-schema-model*', 'wp-settings-*' ),
+			),
+			'complianz'     => array(
+				'nazwa'      => 'Complianz (wtyczka usunięta)',
+				'status'     => 'pozostalosc',
+				'ciasteczka' => array( 'cmplz_*' ),
+				'storage'    => array( 'cmplz_*' ),
+			),
+		);
+		return (array) apply_filters( 'nerti_cookies_pomijane', $p );
+	}
+
+	/**
+	 * Czy ciasteczko albo wpis pamięci to znany ślad panelu albo usuniętej wtyczki.
+	 *
+	 * @param string $typ   ciasteczko | pamiec
+	 * @param string $nazwa Nazwa ciasteczka albo klucz storage.
+	 * @return array{id:string,nazwa:string,status:string}|null
+	 */
+	public static function pomijanie_dla( $typ, $nazwa ) {
+		$pole = 'ciasteczko' === $typ ? 'ciasteczka' : ( 'pamiec' === $typ ? 'storage' : '' );
+		if ( '' === $pole ) {
+			return null;
+		}
+		foreach ( self::pomijane() as $id => $def ) {
+			foreach ( (array) ( $def[ $pole ] ?? array() ) as $w ) {
+				if ( self::pasuje_nazwa( $nazwa, $w ) ) {
+					return array( 'id' => (string) $id, 'nazwa' => (string) $def['nazwa'], 'status' => (string) $def['status'] );
+				}
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -344,6 +428,32 @@ class Nerti_Cookies_Uslugi {
 			}
 		}
 		return self::ciasteczko_z_biblioteki( $nazwa );
+	}
+
+	/**
+	 * Kto zostawia ten wpis localStorage / sessionStorage. Tak samo jak przy ciasteczkach:
+	 * listy `storage` z ustawień kategorii mają pierwszeństwo przed biblioteką.
+	 *
+	 * @param string $klucz Klucz wpisu.
+	 * @return array{kategoria:string,usluga:string}
+	 */
+	public static function pamiec( $klucz ) {
+		$u = Nerti_Cookies_Ustawienia::pobierz();
+		foreach ( $u['kategorie'] as $kat_id => $kat ) {
+			foreach ( (array) ( $kat['storage'] ?? array() ) as $w ) {
+				if ( self::pasuje_nazwa( $klucz, $w ) ) {
+					return array( 'kategoria' => (string) $kat_id, 'usluga' => '' );
+				}
+			}
+		}
+		foreach ( self::wszystkie() as $id => $usl ) {
+			foreach ( (array) $usl['storage'] as $w ) {
+				if ( self::pasuje_nazwa( $klucz, $w ) ) {
+					return array( 'kategoria' => (string) $usl['kategoria'], 'usluga' => (string) $id );
+				}
+			}
+		}
+		return array( 'kategoria' => '', 'usluga' => '' );
 	}
 
 	/**

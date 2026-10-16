@@ -47,6 +47,14 @@ class Nerti_Cookies_Ustawienia {
 			'administrator'    => '',
 
 			/*
+			 * Pozycje skanu, które właściciel uznał za nieistotne dla odwiedzającego („Pomiń").
+			 * Lista wzorców nazw (gwiazdka dopasowuje dowolny ciąg: `pys_*`). Dotyczy tylko
+			 * raportowania: pozycja znika z „wymaga kategorii" i z listy ciasteczek w polityce,
+			 * ale niczego nie odblokowuje ani nie blokuje. Odwracalne: usunięcie wzorca z listy.
+			 */
+			'ignoruj'          => array(),
+
+			/*
 			 * Kto wystawia wejście do wycofania zgody. Wycofanie musi być osiągalne z każdej
 			 * podstrony — to wymóg, nie udogodnienie — więc domyślnie robi to wtyczka i nikt
 			 * nie musi o tym pamiętać. 'strona' oddaje je projektowi: wejściem jest wtedy
@@ -237,6 +245,7 @@ class Nerti_Cookies_Ustawienia {
 		foreach (array('wzorce','osadzenia','uchwyty') as $mapa) foreach (($nowe[$mapa] ?? array()) as $w=>$kat) {
 			if ('' === (string)$w || !in_array($kat,array('niezbedne','analityczne','marketingowe'),true)) return new WP_Error('nc_pattern','Nieprawidłowy wzorzec lub kategoria.',array('status'=>400));
 		}
+		if (isset($nowe['ignoruj']) && (!is_array($nowe['ignoruj']) || count(array_filter($nowe['ignoruj'], static function ($w) { return is_string($w) && '' !== trim($w); })) !== count($nowe['ignoruj']))) return new WP_Error('nc_config','Pomijane pozycje muszą być listą niepustych tekstów.',array('status'=>400));
 		foreach (array('consent_mode','bufor_wyjscia','cm_redakcja','cm_url_passthrough') as $k) if (isset($nowe[$k]) && !is_bool($nowe[$k])) return new WP_Error('nc_config','Przełącznik musi być bool.',array('status'=>400));
 		if (isset($nowe['wycofanie']) && !in_array($nowe['wycofanie'], array('wtyczka','plywajacy','strona'), true)) return new WP_Error('nc_config','Wycofanie: wtyczka, plywajacy albo strona.',array('status'=>400));
 		foreach (($nowe['teksty'] ?? array()) as $v) if (!is_string($v)) return new WP_Error('nc_config','Teksty muszą być ciągami znaków.',array('status'=>400));

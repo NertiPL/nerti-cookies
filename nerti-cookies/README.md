@@ -17,11 +17,11 @@ Baner zgód dla WordPressa, który **blokuje skrypty przed zgodą, nie po niej**
 3. **nagłówki `Set-Cookie` z PHP** — ciasteczka ustawiane przez serwer przed zgodą znikają z odpowiedzi (np. `_fbp` z wtyczki Meta Pixel, którego Complianz nie łapie), także w `admin-ajax.php`;
 4. integracje z wtyczkami, które same umieją czekać: WP Consent API (Site Kit, WooCommerce i inne), Meta Pixel for WordPress (wstrzymuje też Conversions API wysyłane z serwera), Google Consent Mode v2.
 
-**Biblioteka usług.** GA4, GTM, Meta Pixel, TikTok, Hotjar, Clarity, Google Ads, LinkedIn, YouTube, Vimeo, Mapy, reCAPTCHA, Spotify, atrybucja WooCommerce — z kategorią, celem po polsku, odbiorcą i ciasteczkami. Cloudflare Turnstile jest niezbędny i nigdy nie jest blokowany.
+**Biblioteka usług.** GA4, GTM, Meta Pixel (także ślady PixelYourSite: `pys_*`, `last_pys*`, `pysTrafficSource`, `pbid`, `fbqpc_*`), TikTok, Hotjar, Clarity, Google Ads, LinkedIn, YouTube, Vimeo, Mapy, reCAPTCHA, Spotify, atrybucja WooCommerce — z kategorią, celem po polsku, odbiorcą i ciasteczkami. Cloudflare Turnstile jest niezbędny i nigdy nie jest blokowany.
 
 **Cache.** Jeden HTML dla wszystkich: decyzję czyta przeglądarka. Skrypty wtyczki i zablokowane znaczniki są wyłączone z łączenia i opóźniania w LiteSpeed, WP Rocket, Autoptimize i SiteGround Optimizer.
 
-**Sterowanie przez agenta.** Dwanaście abilities dla Agent Connector for WP, plus równoległe trasy REST dla instalacji bez niego.
+**Sterowanie przez agenta.** Piętnaście abilities dla Agent Connector for WP, plus równoległe trasy REST dla instalacji bez niego.
 
 ## Instalacja
 
@@ -69,7 +69,7 @@ Menu *Ciasteczka*. Przy pierwszym wejściu **kreator w 4 krokach**: dokumenty �
 | Zakładka | Co w niej jest |
 |---|---|
 | Pulpit | czy ochrona działa (wynik pomiaru, nie ustawień), co jest blokowane, decyzje z 30 dni, CSV, „Zapytaj wszystkich ponownie", ciasteczka zatrzymane na serwerze |
-| Skanuj stronę | skan podstron jak nowy gość + w przeglądarce z pełną zgodą; każda pozycja z nazwą, kategorią i statusem „czeka na zgodę / działa zawsze / działa PRZED zgodą / nie rozpoznano"; przypisanie kategorii jednym kliknięciem |
+| Skanuj stronę | skan podstron jak nowy gość + w przeglądarce z pełną zgodą; każda pozycja z nazwą, kategorią i statusem „czeka na zgodę / działa zawsze / działa PRZED zgodą / nie rozpoznano"; przypisanie kategorii jednym kliknięciem albo „Pomiń". Pozycje pomijane są zwinięte na dole tabeli (patrz niżej) |
 | Ustawienia | adresy polityk, ważność decyzji, Consent Mode, **gdzie jest wejście do wycofania zgody** |
 | Wygląd | pozycja, szerokość i wielkość tekstu — **osobno dla telefonu i desktopu** — plus import tokenów i podgląd na żywo |
 | Teksty | każdy napis w banerze, z opisem gdzie się pokazuje |
@@ -85,6 +85,25 @@ Jeżeli wejście jest już w projekcie strony — dowolny element z atrybutem `d
 Trzecia opcja: **mały przycisk w rogu ekranu**, widoczny dopiero po decyzji.
 
 Na Oxygenie i Breakdanie skrót `[nerti_cookies_ustawienia]` w treści strony **się nie wykona** — builder omija `the_content`. Tam używa się atrybutu albo elementu „Shortcode".
+
+### Pozycje pomijane w skanie (0.7.0)
+
+Skan z panelu działa w sesji zalogowanego administratora, więc widzi też to, czego odwiedzający strony nie ma. Takie pozycje nie są „do przypisania": dostają jeden z trzech statusów, nie liczą się do „nierozpoznane", nie trafiają do `[nerti_cookies_lista]` i leżą zwinięte na dole tabeli.
+
+| Status | Co to jest | Skąd wiadomo |
+|---|---|---|
+| Tylko panel administratora (pomijane) | wpisy kreatora stron (`breakdance*`), Site Kita (`googlesitekit*`), klienta REST WordPressa (`wp-api-schema-model*`, `wp-settings-*`) | wzorce w bibliotece; albo ciasteczko / wpis pamięci widziany WYŁĄCZNIE w skanie z zalogowanej sesji (ramka skanu zgłasza, że strona wyrenderowała się dla zalogowanego) |
+| Pozostałość po usuniętej wtyczce (pomijane) | `cmplz_*` po Complianzie | wzorzec w bibliotece |
+| Pominięte przez Ciebie | to, co właściciel oznaczył przyciskiem **Pomiń** | ustawienie `ignoruj`; „Przywróć" w zwiniętej sekcji cofa |
+
+Zasady, które trzymają to w ryzach:
+
+- Pomijanie dotyczy **tylko pozycji nierozpoznanych**. Narzędzie rozpoznane przez bibliotekę albo działające przed zgodą (`BLAD`) nie zniknie z raportu ani przez „Pomiń", ani przez heurystykę „widziane tylko po zalogowaniu". Host (obca domena) nigdy nie jest uznany za ślad panelu.
+- Heurystyka dotyczy ciasteczek i pamięci przeglądarki, których serwer nie widział w anonimowym skanie. Jeśli to jednak narzędzie strony, przypisz mu kategorię: ręczna kategoria zawsze wygrywa.
+- „Pomiń" nie zmienia blokady skryptów. To porządek w raporcie i w polityce, nie zgoda.
+- Wzorce przyjmują gwiazdkę w dowolnym miejscu (`pys_*`, `*_sid`). Baner kasuje po odmowie tylko wzorce z gwiazdką **na końcu**, więc ręcznie zapisywane wzorce kategorii trzymaj w tej postaci.
+- Nakładka jest stosowana przy odczycie, nie zapisana w skanie: po aktualizacji wtyczki stary wynik poprawia się bez ponownego skanowania.
+- Biblioteka da się rozszerzyć filtrem `nerti_cookies_pomijane`.
 
 ### Lista ciasteczek do polityki
 
@@ -107,9 +126,15 @@ Wtyczka rejestruje się jako paczka abilities Agent Connector for WP. Uwierzytel
 | `nerti-cookies/inwentarz-skryptow` | jakie skrypty zewnętrzne faktycznie są na stronie |
 | `nerti-cookies/zaproponuj-dokumenty` | komplet dokumentów prawnych dobrany do typu strony |
 | `nerti-cookies/skanuj-strone` | skan podstron (serwer) z kategorią i statusem każdej pozycji; `tylko_lista`, `dopisz`, `zapisany` |
+| `nerti-cookies/przypisz-kategorie` | hurtowe przypisanie kategorii albo pominięcie pozycji ze skanu, z gwiazdką (0.7.0) |
+| `nerti-cookies/zakoncz-kreator` | oznacza kreator „Pierwsze uruchomienie" jako ukończony; `{"otworz": true}` otwiera go ponownie (0.7.0) |
 | `nerti-cookies/lista-uslug` | biblioteka rozpoznawanych usług |
 | `nerti-cookies/eksport-rejestru` | rejestr zgód jako CSV albo JSON, od daty, z limitem |
 | `nerti-cookies/status` | to samo co pulpit: kontrole, werdykt, skan, decyzje z 30 dni, integracje, cache |
+
+`przypisz-kategorie` przyjmuje `{"pozycje":[{"nazwa":"pys_*","kategoria":"marketingowe"}]}`, gdzie `kategoria` to `marketingowe`, `analityczne`, `niezbedne` albo `pomin`. Nazwa dopasowuje się do klucza pozycji i do nazwy widocznej w skanie, gwiazdka obejmuje wiele pozycji. Rusza wyłącznie pozycje nierozpoznane (reszta wraca w `bez_zmian` z powodem), a nazwy bez trafienia w skanie w `brak_dopasowania`. Wzorce z gwiazdką na końcu zapisują się jako jeden wzorzec kategorii, inne rozwijają się do dokładnych kluczy (baner kasuje po odmowie tylko wzorce z gwiazdką na końcu). `pomin` dopisuje wzorzec do ustawienia `ignoruj` (cofnięcie: `zapisz-ustawienia` z nową listą `ignoruj`). Wymaga wcześniejszego skanu; po zmianie kategorii wyczyść cache strony.
+
+`zakoncz-kreator` służy agentowi, który skonfigurował wszystko przez MCP: znika przypomnienie „Skonfiguruj w 4 krokach", a ustawień banera nie rusza. Stan widać w `status` (`kreator_ukonczony`).
 
 `zaproponuj-dokumenty` rozdziela dwa warianty: strona wizytówkowa dostaje **jeden** dokument z ciasteczkami w środku, sklep dostaje osobne polityki, regulamin i pouczenie o odstąpieniu. Przy pytaniu o deklarację dostępności (European Accessibility Act) ability nie zgaduje: bez podanej liczby pracowników i obrotu zwraca `PYTANIE DO KLIENTA`, bo mikroprzedsiębiorca usługowy jest z tego obowiązku zwolniony w całości.
 
@@ -123,7 +148,10 @@ Bez frameworka, uruchamiane przez WP-CLI:
 wp eval-file wp-content/plugins/nerti-cookies/testy/sprawdz-dokumenty.php
 wp eval-file wp-content/plugins/nerti-cookies/testy/sprawdz-oxygena.php
 wp eval-file wp-content/plugins/nerti-cookies/testy/sprawdz-wycofanie.php
+wp eval-file wp-content/plugins/nerti-cookies/testy/sprawdz-skaner.php
 ```
+
+`sprawdz-skaner.php` zapisuje do opcji skanu, ustawień i kreatora, a na końcu je przywraca; puszczaj go na witrynie testowej.
 
 **Test odmowy (bramka Q-COOKIE) jako skrypt** — tylko na lokalnej witrynie testowej:
 

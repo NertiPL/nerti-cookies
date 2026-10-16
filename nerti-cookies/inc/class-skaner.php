@@ -26,10 +26,21 @@ defined( 'ABSPATH' ) || exit;
  *   zawsze     — niezbędne, działa bez zgody (tak ma być dla zapisu decyzji, koszyka, Turnstile),
  *   BLAD       — narzędzie śledzące działa przed zgodą (bloker Q-COOKIE),
  *   nieznane   — obca domena albo ciasteczko, którego biblioteka nie zna (do rozstrzygnięcia).
+ *
+ * Trzy statusy „pomijane" (od 0.7.0) — pozycje, które NIE są śledzeniem odwiedzającego:
+ *   admin       — ślad panelu administratora (kreator stron, Site Kit, klient REST WordPressa),
+ *   pozostalosc — wpis usuniętej wtyczki (np. Complianz) w przeglądarce admina,
+ *   pominiete   — właściciel kliknął „Pomiń" (ustawienie `ignoruj`, odwracalne).
+ * Nie liczą się do „wymaga kategorii" i nie trafiają na listę ciasteczek w polityce.
+ * Są nakładką stosowaną przy ODCZYCIE (`wynik()`), a nie zapisem w skanie: dzięki temu stary
+ * skan poprawia się po aktualizacji biblioteki bez ponownego skanowania, a „Pomiń" da się cofnąć.
  */
 class Nerti_Cookies_Skaner {
 
 	const OPCJA = 'nerti_cookies_skan';
+
+	/** Statusy pozycji, które nie wymagają decyzji ani nie trafiają do polityki. */
+	const POMIJANE = array( 'admin', 'pozostalosc', 'pominiete' );
 
 	public static function hooks() {
 		add_action( 'rest_api_init', array( __CLASS__, 'trasy' ) );
@@ -50,6 +61,7 @@ class Nerti_Cookies_Skaner {
 					'ciasteczka' => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
 					'storage'    => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
 					'hosty'      => array( 'type' => 'array', 'items' => array( 'type' => 'string' ) ),
+					'zalogowany' => array( 'type' => 'boolean' ),
 				),
 			)
 		);
@@ -99,7 +111,7 @@ class Nerti_Cookies_Skaner {
 	public static function skanuj( array $adresy = array(), $dopisz = false ) {
 		$adresy    = $adresy ? $adresy : self::adresy();
 		$u         = Nerti_Cookies_Ustawienia::pobierz();
-		$poprzedni = self::wynik();
+		$poprzedni = self::surowy();
 		$swiezy    = ! empty( $poprzedni['czas'] ) && time() - (int) $poprzedni['czas'] < HOUR_IN_SECONDS;
 		if ( $dopisz && $swiezy ) {
 			$wynik           = $poprzedni;
@@ -252,8 +264,9 @@ class Nerti_Cookies_Skaner {
 	 * @param string $nazwa   Nazwa ciasteczka.
 	 * @param string $adres   Strona.
 	 * @param string $zrodlo  serwer | przegladarka
+	 * @param bool   $zalogowany Skan z przeglądarki w sesji zalogowanego użytkownika.
 	 */
-	private static function dodaj_ciasteczko( array &$pozycje, $nazwa, $adres, $zrodlo ) {
+	private static function dodaj_ciasteczko( array &$pozycje, $nazwa, $adres, $zrodlo, $zalogowany = false ) {
 		$info = Nerti_Cookies_Uslugi::ciasteczko( $nazwa );
 		$kat  = $info['kategoria'];
 		if ( '' === $kat ) {
@@ -264,16 +277,34 @@ class Nerti_Cookies_Skaner {
 			// Z serwera przed zgodą = błąd. Z przeglądarki = ramka skanu miała pełną zgodę, więc to stan „po zgodzie".
 			$status = 'serwer' === $zrodlo ? 'BLAD' : 'blokowane';
 		}
-		self::dodaj( $pozycje, 'ciasteczko', $nazwa, $info['usluga'], $kat, $status, $adres, 'serwer' === $zrodlo ? 'ustawiane przez serwer' : 'ustawiane w przeglądarce po zgodzie' );
+		self::dodaj( $pozycje, 'ciasteczko', $nazwa, $info['usluga'], $kat, $status, $adres, 'serwer' === $zrodlo ? 'ustawiane przez serwer' : 'ustawiane w przeglądarce po zgodzie', self::slad( $zrodlo, $zalogowany ) );
+	}
+
+	/**
+	 * Skąd widać pozycję: anonimowy serwer, zalogowana przeglądarka (skan z panelu) albo
+	 * przeglądarka bez rozpoznanego logowania. Tylko pozycja widoczna WYŁĄCZNIE w sesji
+	 * administratora może być uznana za ślad panelu.
+	 *
+	 * @param string $zrodlo     serwer | przegladarka
+	 * @param bool   $zalogowany Czy skan z przeglądarki szedł w sesji zalogowanego użytkownika.
+	 * @return array<string,bool>
+	 */
+	private static function slad( $zrodlo, $zalogowany ) {
+		return array(
+			'serwer'      => 'serwer' === $zrodlo,
+			'przegl_zal'  => 'przegladarka' === $zrodlo && $zalogowany,
+			'przegl_gosc' => 'przegladarka' === $zrodlo && ! $zalogowany,
+		);
 	}
 
 	/**
 	 * Dopisanie z deduplikacją po (typ, klucz). Gorszy status wygrywa: jedna podstrona z błędem
 	 * to błąd całej pozycji.
 	 */
-	private static function dodaj( array &$pozycje, $typ, $klucz, $usluga, $kat, $status, $adres, $opis ) {
+	private static function dodaj( array &$pozycje, $typ, $klucz, $usluga, $kat, $status, $adres, $opis, array $slad = array() ) {
 		$k     = $typ . '|' . $klucz;
 		$waga  = array( 'BLAD' => 0, 'nieznane' => 1, 'blokowane' => 2, 'zawsze' => 3 );
+		$slad  = $slad ? $slad : array( 'serwer' => true, 'przegl_zal' => false, 'przegl_gosc' => false );
 		if ( ! isset( $pozycje[ $k ] ) ) {
 			$pozycje[ $k ] = array(
 				'typ'       => $typ,
@@ -284,10 +315,16 @@ class Nerti_Cookies_Skaner {
 				'status'    => $status,
 				'opis'      => $opis,
 				'strony'    => array(),
+				'serwer'      => false,
+				'przegl_zal'  => false,
+				'przegl_gosc' => false,
 			);
 		} elseif ( $waga[ $status ] < $waga[ $pozycje[ $k ]['status'] ] ) {
 			$pozycje[ $k ]['status'] = $status;
 			$pozycje[ $k ]['opis']   = $opis;
+		}
+		foreach ( array( 'serwer', 'przegl_zal', 'przegl_gosc' ) as $f ) {
+			$pozycje[ $k ][ $f ] = ! empty( $pozycje[ $k ][ $f ] ) || ! empty( $slad[ $f ] );
 		}
 		if ( '' !== $adres && ! in_array( $adres, $pozycje[ $k ]['strony'], true ) && count( $pozycje[ $k ]['strony'] ) < 5 ) {
 			$pozycje[ $k ]['strony'][] = $adres;
@@ -311,8 +348,10 @@ class Nerti_Cookies_Skaner {
 			'ciasteczka' => array_slice( array_map( 'sanitize_text_field', (array) $req->get_param( 'ciasteczka' ) ), 0, 100 ),
 			'storage'    => array_slice( array_map( 'sanitize_text_field', (array) $req->get_param( 'storage' ) ), 0, 100 ),
 			'hosty'      => array_slice( array_map( 'sanitize_text_field', (array) $req->get_param( 'hosty' ) ), 0, 100 ),
+			// Ramka skanu mówi, czy strona wyrenderowała się dla zalogowanego (pasek admina, klasa body).
+			'zalogowany' => (bool) $req->get_param( 'zalogowany' ),
 		);
-		$wynik = self::wynik();
+		$wynik = self::surowy();
 		if ( ! $wynik ) {
 			$wynik = array( 'czas' => time(), 'wersja' => NERTI_COOKIES_WERSJA, 'adresy' => array(), 'strony' => array(), 'pozycje' => array(), 'przegladarka' => array() );
 		}
@@ -323,28 +362,22 @@ class Nerti_Cookies_Skaner {
 	}
 
 	private static function pozycje_z_przegladarki( array &$pozycje, $adres, array $dane ) {
+		$zal = ! empty( $dane['zalogowany'] );
 		foreach ( (array) $dane['ciasteczka'] as $nazwa ) {
 			// Ramka skanu działa w sesji administratora: jego ciasteczka logowania to nie
 			// ciasteczka odwiedzającego i nie należą do polityki.
 			if ( 'wordpress' === Nerti_Cookies_Uslugi::ciasteczko( (string) $nazwa )['usluga'] ) {
 				continue;
 			}
-			self::dodaj_ciasteczko( $pozycje, (string) $nazwa, $adres, 'przegladarka' );
+			self::dodaj_ciasteczko( $pozycje, (string) $nazwa, $adres, 'przegladarka', $zal );
 		}
 		foreach ( (array) $dane['storage'] as $klucz ) {
-			$usl = '';
-			$kat = '';
-			foreach ( Nerti_Cookies_Uslugi::wszystkie() as $id => $u ) {
-				foreach ( (array) $u['storage'] as $w ) {
-					if ( Nerti_Cookies_Uslugi::pasuje_nazwa( $klucz, $w ) ) {
-						$usl = $id;
-						$kat = $u['kategoria'];
-						break 2;
-					}
-				}
-			}
-			$st = '' === $usl ? 'nieznane' : ( 'niezbedne' === $kat ? 'zawsze' : 'blokowane' );
-			self::dodaj( $pozycje, 'pamiec', (string) $klucz, $usl, $kat, $st, $adres, 'localStorage / sessionStorage po zgodzie' );
+			// Listy `storage` z ustawień kategorii wygrywają z biblioteką (jak przy ciasteczkach).
+			$info = Nerti_Cookies_Uslugi::pamiec( (string) $klucz );
+			$usl  = $info['usluga'];
+			$kat  = $info['kategoria'];
+			$st   = '' === $kat ? 'nieznane' : ( 'niezbedne' === $kat ? 'zawsze' : 'blokowane' );
+			self::dodaj( $pozycje, 'pamiec', (string) $klucz, $usl, $kat, $st, $adres, 'localStorage / sessionStorage po zgodzie', self::slad( 'przegladarka', $zal ) );
 		}
 		foreach ( (array) $dane['hosty'] as $h ) {
 			$usl = Nerti_Cookies_Uslugi::usluga_dla_tekstu( (string) $h, 'hosty' );
@@ -354,16 +387,202 @@ class Nerti_Cookies_Skaner {
 			if ( '' !== $usl ) {
 				continue; // Host znanej usługi — usługa jest już na liście ze znacznika.
 			}
-			self::dodaj( $pozycje, 'host', (string) $h, '', '', 'nieznane', $adres, 'obca domena, do której poszło żądanie po zgodzie' );
+			self::dodaj( $pozycje, 'host', (string) $h, '', '', 'nieznane', $adres, 'obca domena, do której poszło żądanie po zgodzie', self::slad( 'przegladarka', $zal ) );
 		}
 	}
 
 	/**
+	 * Wynik tak, jak leży w bazie: bez nakładki „pomijane". Do zapisu z powrotem.
+	 *
+	 * @return array
+	 */
+	public static function surowy() {
+		$w = get_option( self::OPCJA, array() );
+		return is_array( $w ) ? $w : array();
+	}
+
+	/**
+	 * Wynik do odczytu: z naniesionymi statusami admin / pozostalosc / pominiete. Pozycja
+	 * zmieniona przez nakładkę ma `status_pierwotny` (do cofnięcia „Pomiń").
+	 *
 	 * @return array
 	 */
 	public static function wynik() {
-		$w = get_option( self::OPCJA, array() );
-		return is_array( $w ) ? $w : array();
+		$w = self::surowy();
+		if ( ! empty( $w['pozycje'] ) && is_array( $w['pozycje'] ) ) {
+			$ignoruj = array_values( array_filter( (array) Nerti_Cookies_Ustawienia::pole( 'ignoruj', array() ), 'is_string' ) );
+			foreach ( $w['pozycje'] as $k => $p ) {
+				if ( is_array( $p ) ) {
+					$w['pozycje'][ $k ] = self::nalozenie( $p, $ignoruj );
+				}
+			}
+		}
+		return $w;
+	}
+
+	/**
+	 * Wzorzec z listy „Pomiń", do którego pasuje klucz pozycji.
+	 *
+	 * @param string            $klucz   Klucz pozycji.
+	 * @param array<int,string> $ignoruj Wzorce.
+	 * @return string Pasujący wzorzec albo ''.
+	 */
+	public static function wzorzec_pomijania( $klucz, array $ignoruj ) {
+		foreach ( $ignoruj as $w ) {
+			if ( Nerti_Cookies_Uslugi::pasuje_nazwa( (string) $klucz, (string) $w ) ) {
+				return (string) $w;
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Przypisanie kategorii nierozpoznanej pozycji — wspólne dla przycisku w panelu i dla
+	 * ability `przypisz-kategorie`, żeby obie drogi zapisywały dokładnie to samo.
+	 *
+	 * Ciasteczko i pamięć trafiają do listy kategorii (wzorzec albo nazwa), skrypt, osadzenie
+	 * i host — do mapy wzorców jako domena. Domena, nie cały adres: adres z parametrami
+	 * zmienia się przy każdej wersji skryptu i wzorzec przestałby działać.
+	 *
+	 * @param string $typ     ciasteczko | pamiec | skrypt | osadzenie | piksel | host
+	 * @param string $klucz   Nazwa, wzorzec (`pys_*`) albo adres.
+	 * @param string $kat     Id kategorii.
+	 * @return true|WP_Error
+	 */
+	public static function przypisz( $typ, $klucz, $kat ) {
+		$u = Nerti_Cookies_Ustawienia::pobierz();
+		if ( '' === (string) $klucz || ! isset( $u['kategorie'][ $kat ] ) ) {
+			return new WP_Error( 'nc_przypisz', 'Nieprawidłowe dane: brak nazwy albo nieznana kategoria.', array( 'status' => 400 ) );
+		}
+		$zmiana = array();
+		if ( in_array( $typ, array( 'ciasteczko', 'pamiec' ), true ) ) {
+			$pole = 'ciasteczko' === $typ ? 'ciasteczka' : 'storage';
+			// Wzorzec ląduje tylko w jednej kategorii: z pozostałych znika, inaczej wygrywałaby pierwsza z listy.
+			foreach ( array_keys( $u['kategorie'] ) as $id ) {
+				$lista = array_values( array_diff( array_map( 'strval', (array) ( $u['kategorie'][ $id ][ $pole ] ?? array() ) ), array( (string) $klucz ) ) );
+				if ( $id === $kat ) {
+					$lista[] = (string) $klucz;
+				}
+				if ( $id === $kat || count( $lista ) !== count( (array) ( $u['kategorie'][ $id ][ $pole ] ?? array() ) ) ) {
+					$zmiana['kategorie'][ $id ][ $pole ] = array_values( array_unique( $lista ) );
+				}
+			}
+		} else {
+			$host = wp_parse_url( ( false === strpos( $klucz, '://' ) ? 'https://' : '' ) . $klucz, PHP_URL_HOST );
+			$wzor = $host ? (string) $host : (string) $klucz;
+			$mapa = 'osadzenie' === $typ ? 'osadzenia' : 'wzorce';
+			$zmiana[ $mapa ] = array( $wzor => $kat );
+		}
+		// Przypisanie kategorii kasuje ewentualne wcześniejsze „Pomiń" tego samego wzorca.
+		$ign = array_values( array_diff( array_map( 'strval', (array) $u['ignoruj'] ), array( (string) $klucz ) ) );
+		if ( count( $ign ) !== count( (array) $u['ignoruj'] ) ) {
+			$zmiana['ignoruj'] = $ign;
+		}
+		$wynik = Nerti_Cookies_Ustawienia::zapisz( $zmiana );
+		if ( is_wp_error( $wynik ) ) {
+			return $wynik;
+		}
+		// Pozycje w zapisanym skanie dostają nowy status od razu, bez ponownego skanowania.
+		$skan  = self::surowy();
+		$zmien = false;
+		foreach ( (array) ( $skan['pozycje'] ?? array() ) as $k => $p ) {
+			$pasuje = $typ === $p['typ'] && ( in_array( $typ, array( 'ciasteczko', 'pamiec' ), true ) ? Nerti_Cookies_Uslugi::pasuje_nazwa( $p['klucz'], $klucz ) : (string) $p['klucz'] === (string) $klucz );
+			if ( $pasuje && 'nieznane' === $p['status'] ) {
+				$skan['pozycje'][ $k ]['kategoria'] = $kat;
+				$skan['pozycje'][ $k ]['status']    = 'niezbedne' === $kat ? 'zawsze' : 'blokowane';
+				$zmien = true;
+			}
+		}
+		if ( $zmien ) {
+			update_option( self::OPCJA, $skan, false );
+		}
+		return true;
+	}
+
+	/**
+	 * „Pomiń": dopisuje wzorzec do ustawienia `ignoruj`. Działa na raportowanie (patrz
+	 * `nalozenie()`), nie zmienia blokady.
+	 *
+	 * @param string $wzorzec Nazwa albo wzorzec z gwiazdką.
+	 * @return true|WP_Error
+	 */
+	public static function pomin( $wzorzec ) {
+		$wzorzec = trim( (string) $wzorzec );
+		if ( '' === $wzorzec ) {
+			return new WP_Error( 'nc_pomin', 'Pusta nazwa.', array( 'status' => 400 ) );
+		}
+		$lista = array_map( 'strval', (array) Nerti_Cookies_Ustawienia::pole( 'ignoruj', array() ) );
+		if ( in_array( $wzorzec, $lista, true ) ) {
+			return true;
+		}
+		$lista[] = $wzorzec;
+		$wynik   = Nerti_Cookies_Ustawienia::zapisz( array( 'ignoruj' => array_values( $lista ) ) );
+		return is_wp_error( $wynik ) ? $wynik : true;
+	}
+
+	/**
+	 * Cofnięcie „Pomiń": usuwa z listy wszystkie wzorce, które obejmują ten klucz.
+	 *
+	 * @param string $klucz Klucz pozycji.
+	 * @return true|WP_Error
+	 */
+	public static function przywroc( $klucz ) {
+		$lista = array_map( 'strval', (array) Nerti_Cookies_Ustawienia::pole( 'ignoruj', array() ) );
+		$nowa  = array();
+		foreach ( $lista as $w ) {
+			if ( ! Nerti_Cookies_Uslugi::pasuje_nazwa( (string) $klucz, $w ) ) {
+				$nowa[] = $w;
+			}
+		}
+		if ( count( $nowa ) === count( $lista ) ) {
+			return true;
+		}
+		$wynik = Nerti_Cookies_Ustawienia::zapisz( array( 'ignoruj' => $nowa ) );
+		return is_wp_error( $wynik ) ? $wynik : true;
+	}
+
+	/**
+	 * Nakładka „pomijane" na jedną pozycję. Dotyka wyłącznie pozycji `nieznane`: pozycja
+	 * rozpoznana (kategoria, usługa) albo działająca przed zgodą (BLAD) nie może zniknąć
+	 * z raportu przez „Pomiń" ani przez heurystykę, bo to ukryłoby prawdziwe śledzenie.
+	 *
+	 * Kolejność: decyzja właściciela, potem znany wzorzec z biblioteki, na końcu heurystyka
+	 * „widziane tylko w sesji administratora" (ciasteczko albo pamięć, nigdy host).
+	 *
+	 * @param array             $p       Pozycja ze skanu.
+	 * @param array<int,string> $ignoruj Wzorce z ustawienia `ignoruj`.
+	 * @return array
+	 */
+	private static function nalozenie( array $p, array $ignoruj ) {
+		unset( $p['status_pierwotny'] );
+		if ( 'nieznane' !== ( $p['status'] ?? '' ) ) {
+			return $p;
+		}
+		$typ   = (string) ( $p['typ'] ?? '' );
+		$klucz = (string) ( $p['klucz'] ?? '' );
+		$lib   = Nerti_Cookies_Uslugi::pomijanie_dla( $typ, $klucz );
+		$wz    = self::wzorzec_pomijania( $klucz, $ignoruj );
+		$nowy  = '';
+		$opis  = '';
+		if ( '' !== $wz ) {
+			$nowy = 'pominiete';
+			$opis = 'Pominięte przez administratora (wzorzec: ' . $wz . ').';
+		} elseif ( $lib ) {
+			$nowy = $lib['status'];
+			$opis = 'admin' === $lib['status']
+				? $lib['nazwa'] . ': zapisuje to panel administratora, odwiedzający strony tego nie ma.'
+				: $lib['nazwa'] . ': pozostałość w przeglądarce administratora, do skasowania w ustawieniach przeglądarki.';
+		} elseif ( in_array( $typ, array( 'ciasteczko', 'pamiec' ), true ) && empty( $p['serwer'] ) && ! empty( $p['przegl_zal'] ) && empty( $p['przegl_gosc'] ) ) {
+			$nowy = 'admin';
+			$opis = 'Widziane tylko w skanie z sesji zalogowanego administratora, więc to prawdopodobnie ślad panelu. Jeśli to narzędzie strony, przypisz mu kategorię.';
+		}
+		if ( '' === $nowy ) {
+			return $p;
+		}
+		$p['status_pierwotny'] = 'nieznane';
+		$p['status']           = $nowy;
+		$p['opis']             = $opis;
+		return $p;
 	}
 
 	/**
@@ -376,7 +595,7 @@ class Nerti_Cookies_Skaner {
 		if ( ! $w ) {
 			return array( 'jest' => false );
 		}
-		$licz = array( 'blokowane' => 0, 'zawsze' => 0, 'BLAD' => 0, 'nieznane' => 0 );
+		$licz = array( 'blokowane' => 0, 'zawsze' => 0, 'BLAD' => 0, 'nieznane' => 0, 'admin' => 0, 'pozostalosc' => 0, 'pominiete' => 0 );
 		foreach ( (array) $w['pozycje'] as $poz ) {
 			$licz[ $poz['status'] ] = ( $licz[ $poz['status'] ] ?? 0 ) + 1;
 		}

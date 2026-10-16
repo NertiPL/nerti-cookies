@@ -412,7 +412,10 @@
 				adres: location.href,
 				ciasteczka: document.cookie.split( ';' ).map( function ( c ) { return c.split( '=' )[ 0 ].trim(); } ).filter( Boolean ),
 				storage: klucze( 'localStorage' ).concat( klucze( 'sessionStorage' ) ),
-				hosty: hosty
+				hosty: hosty,
+				// Skan idzie w sesji administratora: klasa `logged-in` na <body> albo pasek admina.
+				// Serwer dzięki temu odróżnia ślad panelu (builder, Site Kit) od śledzenia gościa.
+				zalogowany: !! ( document.getElementById( 'wpadminbar' ) || document.body.classList.contains( 'logged-in' ) )
 			}, location.origin );
 			// Sprzątanie: prawdziwa decyzja administratora wraca, reszta znika.
 			var kat = prawdziwa && prawdziwa.kat ? prawdziwa.kat : zestaw( false );

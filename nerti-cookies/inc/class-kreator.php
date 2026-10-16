@@ -32,6 +32,22 @@ class Nerti_Cookies_Kreator {
 		return (bool) get_option( self::OPCJA, false );
 	}
 
+	/**
+	 * Oznacza kreator „Pierwsze uruchomienie" jako ukończony (znika przypomnienie w panelu).
+	 * Wspólne dla ostatniego kroku kreatora i ability `zakoncz-kreator`, żeby agent, który
+	 * skonfigurował wszystko przez MCP, nie zostawiał klientowi przypomnienia o 4 krokach.
+	 */
+	public static function zakoncz() {
+		update_option( self::OPCJA, time(), false );
+	}
+
+	/**
+	 * Otwiera kreator ponownie (przypomnienie wraca).
+	 */
+	public static function otworz() {
+		delete_option( self::OPCJA );
+	}
+
 	public static function menu() {
 		$strona = add_submenu_page( 'nerti-cookies', 'Pierwsze uruchomienie', 'Pierwsze uruchomienie', 'manage_options', self::SLUG, array( __CLASS__, 'ekran' ) );
 		add_action( 'load-' . $strona, array( 'Nerti_Cookies_Ustawienia', 'zasoby_panelu' ) );
@@ -215,7 +231,7 @@ class Nerti_Cookies_Kreator {
 				Nerti_Cookies_Tokeny::importuj_z_oxygena();
 			}
 		} elseif ( 4 === $krok ) {
-			update_option( self::OPCJA, time(), false );
+			self::zakoncz();
 			wp_safe_redirect( admin_url( 'admin.php?page=nerti-cookies#nc-pulpit' ) );
 			exit;
 		}

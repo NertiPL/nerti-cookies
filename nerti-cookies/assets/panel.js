@@ -225,7 +225,7 @@
 						return;
 					}
 					sprzatnij();
-					wyslij( 'skan-przegladarka', { adres: adres, ciasteczka: e.data.ciasteczka, storage: e.data.storage, hosty: e.data.hosty } )
+					wyslij( 'skan-przegladarka', { adres: adres, ciasteczka: e.data.ciasteczka, storage: e.data.storage, hosty: e.data.hosty, zalogowany: !! e.data.zalogowany } )
 						.then( function () { gotowe( true ); }, function () { gotowe( false ); } );
 				}
 				function sprzatnij() {

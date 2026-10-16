@@ -271,8 +271,18 @@
 
 .nc-przypisz {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 4px;
 	margin-top: 6px;
+}
+
+.nc-skan__pomijane {
+	margin-top: 16px;
+}
+
+.nc-skan__pomijane > summary {
+	cursor: pointer;
+	font-weight: 600;
 }
 
 .nc-skaner__postep {
