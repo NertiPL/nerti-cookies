@@ -93,11 +93,14 @@ class Nerti_Cookies_Uslugi {
 				'kategoria'  => 'marketingowe',
 				'cel'        => 'Mierzy skuteczność reklam na Facebooku i Instagramie i pozwala pokazywać reklamy osobom, które odwiedziły stronę.',
 				'odbiorca'   => 'Meta Platforms Ireland Ltd (Irlandia); możliwe przekazanie do USA na podstawie EU-US Data Privacy Framework',
-				'skrypty'    => array( 'connect.facebook.net', 'facebook.com/tr', 'fbq(', 'fbevents.js' ),
+				// PixelYourSite wstawia fbevents.js dopiero w przeglądarce, z własnego public.js
+				// (public.min.js przy kompresji), więc w HTML-u nie ma ani `fbq(`, ani adresu Facebooka.
+				'skrypty'    => array( 'connect.facebook.net', 'facebook.com/tr', 'fbq(', 'fbevents.js', 'pixelyoursite/dist/scripts/public.', 'pixelyoursite-pro/dist/scripts/public.' ),
 				'piksele'    => array( 'facebook.com/tr' ),
 				'hosty'      => array( 'facebook.net', 'facebook.com' ),
 				'ciasteczka' => array( '_fbp' => '90 dni', '_fbc' => '90 dni', 'fr' => '90 dni' ),
-				'uchwyty'    => array( 'facebook-pixel' ),
+				// PixelYourSite: `pys` to uchwyt z wp_enqueue_script, `pys-js` to id znacznika, który WordPress z niego robi.
+				'uchwyty'    => array( 'facebook-pixel', 'pys', 'pys-js' ),
 				'wtyczki'    => array( 'official-facebook-pixel', 'facebook-for-woocommerce', 'pixelyoursite' ),
 			),
 			'tiktok' => array(

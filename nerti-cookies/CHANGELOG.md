@@ -2,6 +2,21 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.5.2 — 2026-10-16
+
+### Naprawione
+
+- **PixelYourSite jest blokowany bez ustawień per strona.** 2026-10-16 na biznesoweadhd.pl (PixelYourSite 11.4.2.1, Nerti Cookies 0.5.1) piksel pobierał `fbevents.js` i ustawiał `_fbp`, zanim gość cokolwiek kliknął. PixelYourSite wstawia piksel dopiero w przeglądarce, z własnego `public.js`, więc w HTML-u nie było nic, co biblioteka by rozpoznała. Usługa `meta-pixel` ma teraz:
+  - wzorce `pixelyoursite/dist/scripts/public.` i `pixelyoursite-pro/dist/scripts/public.` (łapią `public.js`, `public.min.js` przy włączonej kompresji i wersję Pro),
+  - uchwyty `pys` (tak PixelYourSite rejestruje skrypt) i `pys-js` (id znacznika, który z niego robi WordPress).
+- Biblioteki PixelYourSite (`js-cookie-pys`, `jquery-bind-first`, `js-sha256`) i dane `pys-js-extra` dalej się ładują. Same niczego nie wysyłają ani nie zapisują, a bez nich `public.js` po zgodzie by nie ruszył.
+- Strony, które mają obejście w ustawieniach (`uchwyty` `pys-js`, `wzorce` `pixelyoursite/dist/scripts/public.js`), mogą je zostawić. Ustawienia mają pierwszeństwo i wskazują tę samą kategorię.
+
+### Sprawdzone
+
+- Test w PHP na samym `filtr_uchwytu` i buforze, z pustymi ustawieniami: 0.5.1 przepuszcza `public.js`, `public.min.js` i `public.js` z Pro; 0.5.2 blokuje wszystkie trzy jako marketingowe. Biblioteki PixelYourSite i jQuery przechodzą w obu wersjach.
+- Na biznesoweadhd.pl to samo obejście w ustawieniach przeszło test Playwrightem: przed zgodą i po odmowie zero zapytań do Facebooka i brak `_fbp`, po zgodzie piksel i zdarzenie CAPI.
+
 ## 0.5.1 — 2026-09-26
 
 ### Zmienione
