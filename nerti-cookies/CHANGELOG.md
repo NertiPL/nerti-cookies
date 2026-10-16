@@ -2,6 +2,13 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.6.1 — 2026-10-16
+
+### Dodane
+
+- Tokeny widoku „Ustawienia": `--nc-ustawienia-border` (cała reguła obrysu nad listą, `0` ją usuwa), `--nc-kat-pad`, `--nc-kat-waga`, `--nc-kat-knob-radius` (kwadratowa gałka przełącznika), `--nc-kat-knob-tlo-wl` (kolor gałki po włączeniu). Gałka zmienia kolor płynnie.
+- Wartości zapasowe = wygląd 0.6.0.
+
 ## 0.6.0 — 2026-10-16
 
 ### Dodane

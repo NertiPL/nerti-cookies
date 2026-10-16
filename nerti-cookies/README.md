@@ -55,6 +55,7 @@ Wszystkie mają wartość zapasową równą wyglądowi sprzed 0.6.0, więc stron
 | `--nc-akceptuj-order` | `-1` stawia „Akceptuję" przed „Odrzucam" na ekranie (czytnik dalej czyta odmowę pierwszą) |
 | `--nc-tekst-flex`, `--nc-tekst-color`, `--nc-tekst-fs`, `--nc-tekst-waga`, `--nc-tekst-offset`, `--nc-tekst-hover-grubosc` | przycisk tekstowy „Ustawienia" |
 | `--nc-zapisz-*` (`bg`, `ink`, `border`, `waga`, `flex`, `podkreslenie`, `bg-hover`, `ink-hover`, `border-hover`) | „Zapisz wybór" jako pełny przycisk |
+| `--nc-ustawienia-border`, `--nc-kat-pad`, `--nc-kat-waga`, `--nc-kat-knob-radius`, `--nc-kat-knob-tlo-wl` (0.6.1) | widok „Ustawienia": obrys nad listą, wiersz kategorii, kształt i kolor gałki przełącznika |
 | `--nc-wejscie-czas`, `--nc-wejscie-opoznienie`, `--nc-wejscie-y`, `--nc-wejscie-ease` | wejście panelu; przy `prefers-reduced-motion` wyłączone |
 
 Import sprawdza kontrast. Jeśli para tekst/tło albo etykieta/przycisk schodzi poniżej 4,5:1, zgłasza to zamiast po cichu zrobić baner nie do przeczytania.
