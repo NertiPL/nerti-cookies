@@ -2,6 +2,12 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.7.1 — 2026-10-17
+
+### Naprawione
+
+- **Skrypty wypisane w stopce PO `baner.js` zostawały zablokowane mimo zapisanej zgody.** Przy kolejnej wizycie decyzja była stosowana od razu, gdy przeglądarka doszła do `baner.js`, a np. `pixelyoursite/public.js` i `googlesitekit-consent-mode` stoją niżej. Meta Pixel nie startował dla nikogo, kto zgodził się wcześniej. Teraz `odblokuj()` przechodzi drugi raz na `DOMContentLoaded`.
+
 ## 0.7.0 — 2026-10-17
 
 ### Dodane

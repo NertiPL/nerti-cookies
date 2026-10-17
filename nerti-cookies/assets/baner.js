@@ -433,6 +433,11 @@
 	if ( stanStartowy && stanStartowy.kat ) {
 		// Decyzja już jest: stosujemy ją bez ponownego zapisu do rejestru.
 		zastosuj( stanStartowy.kat, 'istniejaca', false );
+		// baner.js stoi w stopce, a część zablokowanych skryptów (np. PixelYourSite) jest
+		// wypisywana PO nim. Bez drugiego przejścia zostałyby text/plain mimo zgody.
+		if ( document.readyState === 'loading' ) {
+			document.addEventListener( 'DOMContentLoaded', function () { odblokuj( stanStartowy.kat ); } );
+		}
 	} else {
 		zastosuj(zestaw(false), 'brak', false);
 		pokaz();
