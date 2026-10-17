@@ -2,6 +2,12 @@
 
 Wersjonowanie [semver](https://semver.org/). Dopóki wtyczka jest `0.x`, podniesienie środkowej liczby może zmienić kształt wyjścia ability; ostatnia liczba nigdy tego nie robi.
 
+## 0.7.2 — 2026-10-17
+
+### Zmienione
+
+- **Jasne etykiety w widoku ustawień.** Po rozwinięciu kategorii przyciski zgody i odmowy mówią „Akceptuję wszystkie” / „Odrzucam wszystkie” (nowe teksty `akceptuj_wszystkie`, `odrzuc_wszystkie`, edytowalne), a zapis wyboru domyślnie „Zapisz zaznaczone”. Krótkie etykiety z pierwszego ekranu czytały się obok przełączników jak „akceptuję zaznaczone”.
+
 ## 0.7.1 — 2026-10-17
 
 ### Naprawione

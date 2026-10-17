@@ -351,6 +351,7 @@
 				cel.hidden = ! otwarty;
 				var zapisz = baner.querySelector( '[data-nc-akcja="zapisz"]' );
 				if ( zapisz ) { zapisz.hidden = otwarty; }
+				etykiety( ! otwarty );
 				var pole = panelUstawien.querySelector('.nc-kategoria__pole:not(:disabled)');
 				if (!otwarty && pole) pole.focus();
 			}
@@ -364,10 +365,21 @@
 				panelUstawien.hidden = false;
 				baner.querySelector('[data-nc-akcja="zapisz"]').hidden = false;
 				baner.querySelector('[data-nc-akcja="pokaz-ustawienia"]').hidden = true;
+				etykiety( true );
 			}
 			pokaz();
 		}
 	} );
+
+	/* Krótkie „Akceptuję / Odrzucam” pasują do pierwszego ekranu. Po rozwinięciu kategorii te same
+	   przyciski stoją obok przełączników, więc muszą mówić „wszystkie” — inaczej „Akceptuję”
+	   czyta się jak „akceptuję to, co zaznaczyłem” (zgłoszenie Nertiego, 2026-10-17). */
+	function etykiety( pelne ) {
+		Array.prototype.forEach.call( baner.querySelectorAll( '[data-nc-pelny]' ), function ( b ) {
+			if ( ! b.hasAttribute( 'data-nc-krotki' ) ) { b.setAttribute( 'data-nc-krotki', b.textContent.trim() ); }
+			b.textContent = pelne ? b.getAttribute( 'data-nc-pelny' ) : b.getAttribute( 'data-nc-krotki' );
+		} );
+	}
 
 	/* ---------- tryb skanu (ramka na ekranie skanera w panelu) ---------- */
 

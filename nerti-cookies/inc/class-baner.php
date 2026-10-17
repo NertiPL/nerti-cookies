@@ -177,10 +177,12 @@ class Nerti_Cookies_Baner {
 					 */
 					?>
 					<div class="nc-baner__akcje">
-						<button type="button" class="nc-btn nc-btn--rowny" data-nc-akcja="odrzuc" data-nc-tekst="odrzuc">
+						<button type="button" class="nc-btn nc-btn--rowny" data-nc-akcja="odrzuc" data-nc-tekst="odrzuc"
+							data-nc-pelny="<?php echo esc_attr( ! empty( $t['odrzuc_wszystkie'] ) ? $t['odrzuc_wszystkie'] : 'Odrzucam wszystkie' ); ?>">
 							<?php echo esc_html( $t['odrzuc'] ); ?>
 						</button>
-						<button type="button" class="nc-btn nc-btn--rowny" data-nc-akcja="akceptuj" data-nc-tekst="akceptuj">
+						<button type="button" class="nc-btn nc-btn--rowny" data-nc-akcja="akceptuj" data-nc-tekst="akceptuj"
+							data-nc-pelny="<?php echo esc_attr( ! empty( $t['akceptuj_wszystkie'] ) ? $t['akceptuj_wszystkie'] : 'Akceptuję wszystkie' ); ?>">
 							<?php echo esc_html( $t['akceptuj'] ); ?>
 						</button>
 						<button type="button" class="nc-btn nc-btn--tekst" data-nc-akcja="pokaz-ustawienia" data-nc-tekst="ustawienia"
